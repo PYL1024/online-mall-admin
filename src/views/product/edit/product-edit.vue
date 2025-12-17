@@ -28,9 +28,9 @@ import type { Category, ProductForm, SkuSpec } from '@/api/model/product'
 import { getCategoryList, getProductDetail, addProduct, updateProduct } from '@/api/product'
 
 // 引入自定义组件
-import Editor from '@/components/Editor/index.vue'
-import MultiImageUpload from '@/components/MultiImageUpload/index.vue'
-import SkuGenerator from '@/components/SkuGenerator/index.vue'
+import Editor from '@/components/Editor/Editor.vue'
+import MultiImageUpload from '@/components/MultiImageUpload/MultiImageUpload.vue'
+import SkuGenerator from '@/components/SkuGenerator/SkuGenerator.vue'
 
 // ==================== 路由 ====================
 

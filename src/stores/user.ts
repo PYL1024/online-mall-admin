@@ -13,7 +13,6 @@ export const useUserStore = defineStore('user', () => {
   // 计算属性
   const isLoggedIn = computed(() => !!token.value)
   const username = computed(() => userInfo.value?.username || '')
-  const nickname = computed(() => userInfo.value?.nickname || '')
   const avatar = computed(() => userInfo.value?.avatar || '')
 
   /**
@@ -73,7 +72,6 @@ export const useUserStore = defineStore('user', () => {
     userInfo,
     isLoggedIn,
     username,
-    nickname,
     avatar,
     login,
     logout,

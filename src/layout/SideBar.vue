@@ -174,8 +174,6 @@ function handleMenuSelect(index: string) {
 
   // 1. 图标样式修正
   .el-icon {
-    width: 1em;
-    height: 1em;
     font-size: 18px; // 统一图标大小
     vertical-align: middle;
     text-align: center;
@@ -206,9 +204,6 @@ function handleMenuSelect(index: string) {
   }
 }
 
-// ---------------------------
-// 针对折叠模式的特殊修复 (关键)
-// ---------------------------
 :deep(.el-menu--collapse) {
   .el-sub-menu__title,
   .el-menu-item {

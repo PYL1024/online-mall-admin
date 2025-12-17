@@ -22,7 +22,7 @@ const userStore = useUserStore()
 const isCollapse = computed(() => appStore.sidebarCollapsed)
 
 // 用户信息
-const username = computed(() => userStore.nickname || userStore.username || '管理员')
+const username = computed(() => userStore.username || '管理员')
 const avatar = computed(() => userStore.avatar)
 
 // 面包屑

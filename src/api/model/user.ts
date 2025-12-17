@@ -4,14 +4,14 @@
 export interface UserInfo {
   id: number
   username: string
-  nickname: string
   avatar: string
-  email: string
   phone: string
+  email: string
+  gender: string
   status: UserStatus
   role: UserRole
-  createdAt: string
-  updatedAt: string
+  createdAt: string //yyyy-MM-dd HH:mm:ss
+  updatedAt: string //yyyy-MM-dd HH:mm:ss
 }
 
 /**
@@ -24,14 +24,13 @@ export enum UserStatus {
   DISABLED = 0,
 }
 
-/**
- * 用户角色
- */
 export enum UserRole {
-  /** 管理员 */
-  ADMIN = 'admin',
   /** 普通用户 */
-  USER = 'user',
+  USER = 0,
+  /** 普通管理员 */
+  ADMIN = 1,
+  /** 超级管理员 */
+  SUPER_ADMIN = 2,
 }
 
 /**
@@ -58,5 +57,28 @@ export interface UserListParams {
   pageSize: number
   username?: string
   phone?: string
+  status?: UserStatus
+}
+
+/**
+ * 创建用户表单
+ */
+export interface UserForm {
+  username: string
+  password: string
+  phone: string
+  email: string
+  status: number
+  role: UserRole | null
+}
+
+/**
+ * 搜索表单
+ */
+
+export interface SearchForm {
+  username: string
+  phone: string
+  email: string
   status?: UserStatus
 }

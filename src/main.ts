@@ -6,7 +6,7 @@ import '@/assets/styles/index.scss'
 
 import App from './App.vue'
 import router from './router'
-
+import 'dayjs/locale/zh-cn'
 const app = createApp(App)
 
 app.use(createPinia())

@@ -1,5 +1,12 @@
-import { get, post } from '@/utils/request'
-import type { LoginParams, LoginResult, UserForm, UserInfo, UserListParams } from './model/user'
+import { get, post, patch, del, put } from '@/utils/request'
+import {
+  UserStatus,
+  type LoginParams,
+  type LoginResult,
+  type UserForm,
+  type UserInfo,
+  type UserListParams,
+} from './model/user'
 import type { PageResult } from './model/common'
 
 // 模拟开关：如果为 true，则直接返回模拟数据，不请求后端
@@ -20,17 +27,25 @@ export async function login(data: LoginParams): Promise<LoginResult> {
             avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
             phone: '13800138000',
             email: 'admin@example.com',
-            gender: '未知',
-            status: 1,
-            role: 0,
-            createdAt: '2023-01-01 11:45:14',
-            updatedAt: '2023-01-01 11:45:14',
+            gender: '男',
+            status: UserStatus.ACTIVE,
+            role: 2,
+            createdTime: '2023-01-01 11:45:14',
+            updatedTime: '2023-01-01 11:45:14',
           },
         } as LoginResult)
       }, 500)
     })
   }
-  return post<LoginResult>('/auth/login', data as unknown as Record<string, unknown>)
+  return post<LoginResult>('/api/admin/auth/login', data as unknown as Record<string, unknown>)
+}
+
+/**
+ * 重置密码
+ */
+export function resetPassword(data: Record<string, string>): Promise<void> {
+  if (USE_MOCK) return Promise.resolve()
+  return post<void>('/api/admin/auth/reset-password', data)
 }
 
 /**
@@ -40,13 +55,13 @@ export function logout(): Promise<void> {
   if (USE_MOCK) {
     return Promise.resolve()
   }
-  return post<void>('/auth/logout')
+  return post<void>('/api/admin/signout')
 }
 
 /**
- * 获取当前用户信息
+ * 获取当前管理员信息
  */
-export function getCurrentUser(): Promise<UserInfo> {
+export function getCurrentAdmin(): Promise<UserInfo> {
   if (USE_MOCK) {
     return Promise.resolve({
       id: 1,
@@ -54,14 +69,30 @@ export function getCurrentUser(): Promise<UserInfo> {
       avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
       phone: '13800138000',
       email: 'admin@example.com',
-      gender: '未知',
-      status: 1,
-      role: 0,
-      createdAt: '2023-01-01 11:45:14',
-      updatedAt: '2023-01-01 11:45:14',
+      gender: '男',
+      status: UserStatus.ACTIVE,
+      role: 2,
+      createdTime: '2023-01-01 11:45:14',
+      updatedTime: '2023-01-01 11:45:14',
     } as UserInfo)
   }
-  return get<UserInfo>('/auth/current')
+  return get<UserInfo>('/api/admin/info')
+}
+
+/**
+ * 更新管理员信息
+ */
+export function updateAdminInfo(data: Partial<UserInfo>): Promise<void> {
+  if (USE_MOCK) return Promise.resolve()
+  return put<void>('/api/admin/update', data as unknown as Record<string, unknown>)
+}
+
+/**
+ * 修改管理员密码
+ */
+export function changePassword(data: Record<string, string>): Promise<void> {
+  if (USE_MOCK) return Promise.resolve()
+  return put<void>('/api/admin/change-password', data)
 }
 
 /**
@@ -78,38 +109,57 @@ export function getUserList(params: UserListParams): Promise<PageResult<UserInfo
           phone: `1380013800${index}`,
           email: `user${index + 1}@example.com`,
           gender: '未知',
-          status: index % 3 === 0 ? 0 : 1,
+          status: index % 3 === 0 ? UserStatus.DISABLED : UserStatus.ACTIVE,
           role: index % 3 === 0 ? 0 : index % 3 === 1 ? 1 : 0,
-          createdAt: '2023-01-01 11:45:14',
-          updatedAt: '2023-01-02 11:45:14',
+          createdTime: '2023-01-01 11:45:14',
+          updatedTime: '2023-01-02 11:45:14',
         })) as unknown as UserInfo[]
 
-        // 2. 模拟后端过滤逻辑 (根据 params.username 筛选)
-        if (params.username) {
-          allMockData = allMockData.filter((u) => u.username.includes(params.username!))
-        }
-        if (params.phone) {
-          allMockData = allMockData.filter((u) => u.phone.includes(params.phone!))
+        // 2. 模拟后端过滤逻辑
+        if (params.keyword) {
+          allMockData = allMockData.filter(
+            (u) =>
+              u.username.includes(params.keyword!) ||
+              u.phone.includes(params.keyword!) ||
+              u.email.includes(params.keyword!),
+          )
         }
         if (params.status != undefined) {
           allMockData = allMockData.filter((u) => u.status == params.status!)
         }
+        if (params.role != undefined) {
+          allMockData = allMockData.filter((u) => u.role == params.role!)
+        }
 
-        // 3. 模拟后端分页逻辑 (根据 params.page 和 pageSize 切割数组)
+        // 3. 模拟后端分页逻辑
         const start = (params.page - 1) * params.pageSize
         const end = start + params.pageSize
         const pageList = allMockData.slice(start, end)
 
         resolve({
           list: pageList,
-          total: allMockData.length, // 总数应该是过滤后的总数
+          total: allMockData.length,
           page: params.page,
           pageSize: params.pageSize,
         })
       }, 500)
     })
   }
-  return get<PageResult<UserInfo>>('/users', params as unknown as Record<string, unknown>)
+  return get<PageResult<UserInfo>>('/admin/users', params as unknown as Record<string, unknown>)
+}
+
+/**
+ * 获取管理员列表
+ */
+export function getAdminList(params: UserListParams): Promise<PageResult<UserInfo>> {
+  if (USE_MOCK) {
+    // 复用 getUserList 的 Mock 逻辑，但强制过滤 role=1
+    return getUserList({ ...params, role: 1 })
+  }
+  return get<PageResult<UserInfo>>(
+    '/admin/admins/list',
+    params as unknown as Record<string, unknown>,
+  )
 }
 
 /**
@@ -117,15 +167,32 @@ export function getUserList(params: UserListParams): Promise<PageResult<UserInfo
  */
 export function addUser(data: UserForm): Promise<void> {
   if (USE_MOCK) return Promise.resolve()
-  return post<void>('/users', { data })
+  return post<void>('/admin/users', { data })
+}
+
+/**
+ * 创建管理员
+ */
+export function addAdmin(data: Pick<UserForm, 'password' | 'phone'>): Promise<UserInfo> {
+  if (USE_MOCK) {
+    return Promise.resolve({
+      id: Math.floor(Math.random() * 1000),
+      username: `admin_${data.phone}`,
+      avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+    } as UserInfo)
+  }
+  return post<UserInfo>('/admin/admins/create', data as unknown as Record<string, unknown>)
 }
 
 /**
  * 更新用户状态（封禁/解禁）
  */
-export function updateUserStatus(userId: number, status: number): Promise<void> {
+export function updateUserStatus(
+  userId: number,
+  data: { action: number; endTime?: number },
+): Promise<void> {
   if (USE_MOCK) return Promise.resolve()
-  return post<void>(`/users/${userId}/status`, { status })
+  return patch<void>(`/admin/users/status/${userId}`, data as unknown as Record<string, unknown>)
 }
 
 /**
@@ -135,7 +202,15 @@ export function updateUserStatus(userId: number, status: number): Promise<void> 
  */
 export function deleteUser(userId: number): Promise<void> {
   if (USE_MOCK) return Promise.resolve()
-  return post<void>(`/users/deleteUser/${userId}`)
+  return del<void>(`/admin/users/delete/${userId}`)
+}
+
+/**
+ * 删除管理员
+ */
+export function deleteAdmin(adminId: number): Promise<void> {
+  if (USE_MOCK) return Promise.resolve()
+  return del<void>(`/admin/admins/${adminId}`)
 }
 
 /**
@@ -150,11 +225,11 @@ export function getUserDetail(userId: number): Promise<UserInfo> {
       phone: '13800138000',
       email: 'admin@example.com',
       gender: '未知',
-      status: 1,
+      status: UserStatus.ACTIVE,
       role: 2,
-      createdAt: '2023-01-01 11:45:14',
-      updatedAt: '2023-01-01 11:45:14',
+      createdTime: '2023-01-01 11:45:14',
+      updatedTime: '2023-01-01 11:45:14',
     } as UserInfo)
   }
-  return get<UserInfo>(`/users/${userId}`)
+  return get<UserInfo>(`/admin/users/${userId}`)
 }

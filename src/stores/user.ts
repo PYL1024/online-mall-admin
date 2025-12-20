@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { UserInfo } from '@/api/model/user'
-import { login as loginApi, logout as logoutApi, getCurrentUser } from '@/api/user'
+import { login as loginApi, logout as logoutApi, getCurrentAdmin } from '@/api/user'
 import type { LoginParams } from '@/api/model/user'
 import { setToken, removeToken, getToken } from '@/utils/auth'
 
@@ -50,7 +50,7 @@ export const useUserStore = defineStore('user', () => {
    */
   async function fetchUserInfo() {
     try {
-      const info = await getCurrentUser()
+      const info = await getCurrentAdmin()
       userInfo.value = info
       return info
     } catch (error) {

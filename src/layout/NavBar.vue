@@ -44,6 +44,11 @@ async function handleLogout() {
   await userStore.logout()
   router.push('/login')
 }
+
+// 跳转个人中心
+function handleToProfile() {
+  router.push('/system/profile')
+}
 </script>
 
 <template>
@@ -76,7 +81,11 @@ async function handleLogout() {
         </div>
         <template #dropdown>
           <ElDropdownMenu>
-            <ElDropdownItem @click="handleLogout">
+            <ElDropdownItem @click="handleToProfile">
+              <ElIcon><User /></ElIcon>
+              <span>个人中心</span>
+            </ElDropdownItem>
+            <ElDropdownItem divided @click="handleLogout">
               <ElIcon><SwitchButton /></ElIcon>
               <span>退出登录</span>
             </ElDropdownItem>

@@ -132,4 +132,13 @@ export function del<T>(
   return service.delete(url, { params, ...config }).then((res) => res.data.data as T)
 }
 
-export default service
+/**
+ * Patch 请求
+ */
+export function patch<T>(
+  url: string,
+  data?: Record<string, unknown>,
+  config?: AxiosRequestConfig,
+): Promise<T> {
+  return service.patch(url, data, config).then((res) => res.data.data as T)
+}

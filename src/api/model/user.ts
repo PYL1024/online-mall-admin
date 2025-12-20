@@ -10,8 +10,9 @@ export interface UserInfo {
   gender: string
   status: UserStatus
   role: UserRole
-  createdAt: string //yyyy-MM-dd HH:mm:ss
-  updatedAt: string //yyyy-MM-dd HH:mm:ss
+  birthday?: string
+  createdTime: string
+  updatedTime: string
 }
 
 /**
@@ -19,9 +20,9 @@ export interface UserInfo {
  */
 export enum UserStatus {
   /** 正常 */
-  ACTIVE = 1,
+  ACTIVE = 'active',
   /** 禁用 */
-  DISABLED = 0,
+  DISABLED = 'disabled',
 }
 
 export enum UserRole {
@@ -37,7 +38,7 @@ export enum UserRole {
  * 登录请求参数
  */
 export interface LoginParams {
-  username: string
+  account: string
   password: string
 }
 
@@ -55,9 +56,9 @@ export interface LoginResult {
 export interface UserListParams {
   page: number
   pageSize: number
-  username?: string
-  phone?: string
+  keyword?: string
   status?: UserStatus
+  role?: UserRole
 }
 
 /**
@@ -68,7 +69,7 @@ export interface UserForm {
   password: string
   phone: string
   email: string
-  status: number
+  status: UserStatus
   role: UserRole | null
 }
 
@@ -77,8 +78,6 @@ export interface UserForm {
  */
 
 export interface SearchForm {
-  username: string
-  phone: string
-  email: string
+  keyword: string
   status?: UserStatus
 }

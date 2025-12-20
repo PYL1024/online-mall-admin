@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
+import { UserRole } from '@/api/model/user'
 
 /**
  * 公共路由（无需登录）
@@ -10,6 +11,15 @@ export const publicRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/login/login.vue'),
     meta: {
       title: '登录',
+      hidden: true,
+    },
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/login/forgot-password.vue'),
+    meta: {
+      title: '找回密码',
       hidden: true,
     },
   },
@@ -183,6 +193,24 @@ export const asyncRoutes: RouteRecordRaw[] = [
             component: () => import('@/views/system/user/system-user.vue'),
             meta: {
               title: '用户管理',
+            },
+          },
+          {
+            path: 'admin',
+            name: 'AdminManagement',
+            component: () => import('@/views/system/admin/system-admin.vue'),
+            meta: {
+              title: '管理员管理',
+              roles: [UserRole.SUPER_ADMIN],
+            },
+          },
+          {
+            path: 'profile',
+            name: 'UserProfile',
+            component: () => import('@/views/system/profile/admin-index.vue'),
+            meta: {
+              title: '个人中心',
+              hidden: true,
             },
           },
         ],

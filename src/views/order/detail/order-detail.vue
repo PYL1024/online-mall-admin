@@ -12,7 +12,7 @@ const orderId = route.params.id
 
 <template>
   <div class="order-detail-container">
-    <h1>订单详情</h1>
+    <h1>订单详情   等待后端的查看详情api</h1>
     <p class="placeholder-text">订单ID: {{ orderId }}</p>
     <p class="placeholder-text">此页面由成员 C 负责开发</p>
     <div class="features">

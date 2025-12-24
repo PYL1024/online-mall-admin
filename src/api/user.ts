@@ -99,53 +99,69 @@ export function changePassword(data: Record<string, string>): Promise<void> {
  * 获取用户列表
  */
 export function getUserList(params: UserListParams): Promise<PageResult<UserInfo>> {
-  if (USE_MOCK) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        let allMockData = Array.from({ length: 100 }).map((_, index) => ({
-          id: index + 1 + (params.page - 1) * params.pageSize,
-          username: `user_${index + 1}`,
-          avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-          phone: `1380013800${index}`,
-          email: `user${index + 1}@example.com`,
-          gender: '未知',
-          status: index % 3 === 0 ? UserStatus.DISABLED : UserStatus.ACTIVE,
-          role: index % 3 === 0 ? 0 : index % 3 === 1 ? 1 : 0,
-          createdTime: '2023-01-01 11:45:14',
-          updatedTime: '2023-01-02 11:45:14',
-        })) as unknown as UserInfo[]
+  // if (USE_MOCK) {
+  //   return new Promise((resolve) => {
+  //     setTimeout(() => {
+  //       let allMockData = Array.from({ length: 100 }).map((_, index) => ({
+  //         id: index + 1 + (params.page - 1) * params.pageSize,
+  //         username: `user_${index + 1}`,
+  //         avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+  //         phone: `1380013800${index}`,
+  //         email: `user${index + 1}@example.com`,
+  //         gender: '未知',
+  //         status: index % 3 === 0 ? UserStatus.DISABLED : UserStatus.ACTIVE,
+  //         role: index % 3 === 0 ? 0 : index % 3 === 1 ? 1 : 0,
+  //         createdTime: '2023-01-01 11:45:14',
+  //         updatedTime: '2023-01-02 11:45:14',
+  //       })) as unknown as UserInfo[]
 
-        // 2. 模拟后端过滤逻辑
-        if (params.keyword) {
-          allMockData = allMockData.filter(
-            (u) =>
-              u.username.includes(params.keyword!) ||
-              u.phone.includes(params.keyword!) ||
-              u.email.includes(params.keyword!),
-          )
-        }
-        if (params.status != undefined) {
-          allMockData = allMockData.filter((u) => u.status == params.status!)
-        }
-        if (params.role != undefined) {
-          allMockData = allMockData.filter((u) => u.role == params.role!)
-        }
+  //       // 2. 模拟后端过滤逻辑
+  //       if (params.keyword) {
+  //         allMockData = allMockData.filter(
+  //           (u) =>
+  //             u.username.includes(params.keyword!) ||
+  //             u.phone.includes(params.keyword!) ||
+  //             u.email.includes(params.keyword!),
+  //         )
+  //       }
+  //       if (params.status != undefined) {
+  //         allMockData = allMockData.filter((u) => u.status == params.status!)
+  //       }
+  //       if (params.role != undefined) {
+  //         allMockData = allMockData.filter((u) => u.role == params.role!)
+  //       }
 
-        // 3. 模拟后端分页逻辑
-        const start = (params.page - 1) * params.pageSize
-        const end = start + params.pageSize
-        const pageList = allMockData.slice(start, end)
+  //       // 3. 模拟后端分页逻辑
+  //       const start = (params.page - 1) * params.pageSize
+  //       const end = start + params.pageSize
+  //       const pageList = allMockData.slice(start, end)
 
-        resolve({
-          list: pageList,
-          total: allMockData.length,
-          page: params.page,
-          pageSize: params.pageSize,
-        })
-      }, 500)
-    })
+  //       resolve({
+  //         list: pageList,
+  //         total: allMockData.length,
+  //         page: params.page,
+  //         pageSize: params.pageSize,
+  //       })
+  //     }, 500)
+  //   })
+  // }
+  const baseUrl = '/api/admin/users'
+  const searchParams = new URLSearchParams()
+  searchParams.set('page', params.page.toString())
+  searchParams.set('pageSize', params.pageSize.toString())
+
+  if (params.keyword !== undefined && params.keyword !== '') {
+    searchParams.set('keyword', params.keyword)
   }
-  return get<PageResult<UserInfo>>('/admin/users', params as unknown as Record<string, unknown>)
+  if (params.status !== undefined) {
+    searchParams.set('status', params.status.toString())
+  }
+  if (params.role !== undefined) {
+    searchParams.set('role', params.role.toString())
+  }
+
+  const url = `${baseUrl}?${searchParams.toString()}`
+  return get<PageResult<UserInfo>>(url)
 }
 
 /**
@@ -191,7 +207,7 @@ export function updateUserStatus(
   userId: number,
   data: { action: number; endTime?: number },
 ): Promise<void> {
-  if (USE_MOCK) return Promise.resolve()
+  // if (USE_MOCK) return Promise.resolve()
   return patch<void>(`/admin/users/status/${userId}`, data as unknown as Record<string, unknown>)
 }
 
@@ -201,7 +217,7 @@ export function updateUserStatus(
  * @returns
  */
 export function deleteUser(userId: number): Promise<void> {
-  if (USE_MOCK) return Promise.resolve()
+  // if (USE_MOCK) return Promise.resolve()
   return del<void>(`/admin/users/delete/${userId}`)
 }
 

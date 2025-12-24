@@ -1,6 +1,5 @@
 import { get, post, patch, del, put } from '@/utils/request'
 import {
-  UserStatus,
   type LoginParams,
   type LoginResult,
   type UserForm,
@@ -28,7 +27,7 @@ export async function login(data: LoginParams): Promise<LoginResult> {
             phone: '13800138000',
             email: 'admin@example.com',
             gender: '男',
-            status: UserStatus.ACTIVE,
+            status: 'active',
             role: 2,
             createdTime: '2023-01-01 11:45:14',
             updatedTime: '2023-01-01 11:45:14',
@@ -70,7 +69,7 @@ export function getCurrentAdmin(): Promise<UserInfo> {
       phone: '13800138000',
       email: 'admin@example.com',
       gender: '男',
-      status: UserStatus.ACTIVE,
+      status: 'active',
       role: 2,
       createdTime: '2023-01-01 11:45:14',
       updatedTime: '2023-01-01 11:45:14',
@@ -241,7 +240,7 @@ export function getUserDetail(userId: number): Promise<UserInfo> {
       phone: '13800138000',
       email: 'admin@example.com',
       gender: '未知',
-      status: UserStatus.ACTIVE,
+      status: 'active',
       role: 2,
       createdTime: '2023-01-01 11:45:14',
       updatedTime: '2023-01-01 11:45:14',

@@ -4,13 +4,12 @@
 export interface UserInfo {
   id: number
   username: string
-  avatar: string
   phone: string
-  email: string
-  gender: string
+  email: string | null
+  avatar: string
   status: UserStatus
-  role: UserRole
-  birthday?: string
+  role?: UserRole | null
+  birthday?: string | null
   createdTime: string
   updatedTime: string
 }
@@ -18,12 +17,7 @@ export interface UserInfo {
 /**
  * 用户状态
  */
-export enum UserStatus {
-  /** 正常 */
-  ACTIVE = 'active',
-  /** 禁用 */
-  DISABLED = 'disabled',
-}
+export type UserStatus = 'active' | 'disabled'
 
 export enum UserRole {
   /** 普通用户 */

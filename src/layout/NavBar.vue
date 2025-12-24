@@ -22,7 +22,7 @@ const userStore = useUserStore()
 const isCollapse = computed(() => appStore.sidebarCollapsed)
 
 // 用户信息
-const username = computed(() => userStore.nickname || userStore.username || '管理员')
+const username = computed(() => userStore.username || '管理员')
 const avatar = computed(() => userStore.avatar)
 
 // 面包屑
@@ -43,6 +43,11 @@ function toggleSidebar() {
 async function handleLogout() {
   await userStore.logout()
   router.push('/login')
+}
+
+// 跳转个人中心
+function handleToProfile() {
+  router.push('/system/profile')
 }
 </script>
 
@@ -76,7 +81,11 @@ async function handleLogout() {
         </div>
         <template #dropdown>
           <ElDropdownMenu>
-            <ElDropdownItem @click="handleLogout">
+            <ElDropdownItem @click="handleToProfile">
+              <ElIcon><User /></ElIcon>
+              <span>个人中心</span>
+            </ElDropdownItem>
+            <ElDropdownItem divided @click="handleLogout">
               <ElIcon><SwitchButton /></ElIcon>
               <span>退出登录</span>
             </ElDropdownItem>

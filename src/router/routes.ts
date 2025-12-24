@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
+import { UserRole } from '@/api/model/user'
 
 /**
  * 公共路由（无需登录）
@@ -7,9 +8,18 @@ export const publicRoutes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'Login',
-    component: () => import('@/views/login/index.vue'),
+    component: () => import('@/views/login/login.vue'),
     meta: {
       title: '登录',
+      hidden: true,
+    },
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/login/forgot-password.vue'),
+    meta: {
+      title: '找回密码',
       hidden: true,
     },
   },
@@ -38,7 +48,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
       {
         path: 'dashboard',
         name: 'Dashboard',
-        component: () => import('@/views/dashboard/index.vue'),
+        component: () => import('@/views/dashboard/dashboard.vue'),
         meta: {
           title: '仪表盘',
           icon: 'Odometer',
@@ -58,7 +68,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'category',
             name: 'ProductCategory',
-            component: () => import('@/views/product/category/index.vue'),
+            component: () => import('@/views/product/category/product-category.vue'),
             meta: {
               title: '分类管理',
             },
@@ -66,7 +76,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'list',
             name: 'ProductList',
-            component: () => import('@/views/product/list/index.vue'),
+            component: () => import('@/views/product/list/product-list.vue'),
             meta: {
               title: '商品列表',
             },
@@ -74,7 +84,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'create',
             name: 'ProductCreate',
-            component: () => import('@/views/product/edit/index.vue'),
+            component: () => import('@/views/product/edit/product-edit.vue'),
             meta: {
               title: '发布商品',
               hidden: true,
@@ -83,7 +93,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'edit/:id',
             name: 'ProductEdit',
-            component: () => import('@/views/product/edit/index.vue'),
+            component: () => import('@/views/product/edit/product-edit.vue'),
             meta: {
               title: '编辑商品',
               hidden: true,
@@ -105,7 +115,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'list',
             name: 'OrderList',
-            component: () => import('@/views/order/list/index.vue'),
+            component: () => import('@/views/order/list/order-list.vue'),
             meta: {
               title: '订单列表',
             },
@@ -113,7 +123,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'detail/:id',
             name: 'OrderDetail',
-            component: () => import('@/views/order/detail/index.vue'),
+            component: () => import('@/views/order/detail/order-detail.vue'),
             meta: {
               title: '订单详情',
               hidden: true,
@@ -122,7 +132,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'aftersale',
             name: 'AfterSale',
-            component: () => import('@/views/order/aftersale/index.vue'),
+            component: () => import('@/views/order/aftersale/order-aftersale.vue'),
             meta: {
               title: '售后管理',
             },
@@ -143,7 +153,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'coupon',
             name: 'CouponManagement',
-            component: () => import('@/views/marketing/coupon/index.vue'),
+            component: () => import('@/views/marketing/coupon/marketing-coupon.vue'),
             meta: {
               title: '优惠券管理',
             },
@@ -151,7 +161,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'banner',
             name: 'BannerManagement',
-            component: () => import('@/views/marketing/banner/index.vue'),
+            component: () => import('@/views/marketing/banner/marketing-banner.vue'),
             meta: {
               title: '轮播图管理',
             },
@@ -159,7 +169,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'notice',
             name: 'NoticeManagement',
-            component: () => import('@/views/marketing/notice/index.vue'),
+            component: () => import('@/views/marketing/notice/marketing-notice.vue'),
             meta: {
               title: '商城公告',
             },
@@ -180,9 +190,27 @@ export const asyncRoutes: RouteRecordRaw[] = [
           {
             path: 'user',
             name: 'UserManagement',
-            component: () => import('@/views/system/user/index.vue'),
+            component: () => import('@/views/system/user/system-user.vue'),
             meta: {
               title: '用户管理',
+            },
+          },
+          {
+            path: 'admin',
+            name: 'AdminManagement',
+            component: () => import('@/views/system/admin/system-admin.vue'),
+            meta: {
+              title: '管理员管理',
+              roles: [UserRole.SUPER_ADMIN],
+            },
+          },
+          {
+            path: 'profile',
+            name: 'UserProfile',
+            component: () => import('@/views/system/profile/admin-index.vue'),
+            meta: {
+              title: '个人中心',
+              hidden: true,
             },
           },
         ],

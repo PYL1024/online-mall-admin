@@ -1,33 +1,34 @@
 <script setup lang="ts">
 /**
- * 商品发布/编辑页面
- * 负责人：成员 B
- * 功能：富文本编辑、图片上传、SKU规格生成
+ * 订单详情页面
+ * 负责人：成员 C
+ * 功能：订单详情展示
  */
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
-const isEdit = !!route.params.id
+const orderId = route.params.id
 </script>
 
 <template>
-  <div class="product-edit-container">
-    <h1>{{ isEdit ? '编辑商品' : '发布商品' }}</h1>
-    <p class="placeholder-text">此页面由成员 B 负责开发</p>
+  <div class="order-detail-container">
+    <h1>订单详情   等待后端的查看详情api</h1>
+    <p class="placeholder-text">订单ID: {{ orderId }}</p>
+    <p class="placeholder-text">此页面由成员 C 负责开发</p>
     <div class="features">
       <h3>待实现功能：</h3>
       <ul>
-        <li>富文本编辑器集成</li>
-        <li>多图上传、拖拽排序</li>
-        <li>SKU 规格生成器（重难点）</li>
-        <li>商品表单验证</li>
+        <li>订单基本信息展示</li>
+        <li>商品列表</li>
+        <li>收货地址信息</li>
+        <li>订单状态流转记录</li>
       </ul>
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.product-edit-container {
+.order-detail-container {
   padding: 20px;
   background: #fff;
   border-radius: 8px;

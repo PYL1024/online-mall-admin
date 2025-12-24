@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, type RouteRecordRaw } from 'vue-router'
 import { ElMenu, ElMenuItem, ElSubMenu, ElIcon, ElScrollbar } from 'element-plus'
 import * as Icons from '@element-plus/icons-vue'
 import { asyncRoutes } from '@/router/routes'
-import { useAppStore } from '@/stores'
+import { useAppStore, useUserStore } from '@/stores'
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+const userStore = useUserStore()
 
 // 侧边栏是否折叠
 const isCollapse = computed(() => appStore.sidebarCollapsed)
@@ -21,11 +22,33 @@ function getIcon(iconName: string | undefined) {
   return icon || null
 }
 
+// 检查路由权限
+function hasPermission(route: RouteRecordRaw) {
+  if (route.meta && route.meta.roles) {
+    const userRole = userStore.userInfo?.role
+    if (userRole === undefined) return false
+    return route.meta?.roles.includes(userRole)
+  }
+  return true
+}
+
 // 过滤出需要在菜单中显示的路由
 const menuRoutes = computed(() => {
   const layoutRoute = asyncRoutes.find((r) => r.path === '/')
   if (!layoutRoute || !layoutRoute.children) return []
-  return layoutRoute.children.filter((route) => !route.meta?.hidden)
+
+  return layoutRoute.children
+    .filter((route) => !route.meta?.hidden && hasPermission(route))
+    .map((route) => {
+      // 如果有子路由，也需要过滤子路由
+      if (route.children) {
+        const visibleChildren = route.children.filter(
+          (child) => !child.meta?.hidden && hasPermission(child),
+        )
+        return { ...route, children: visibleChildren }
+      }
+      return route
+    })
 })
 
 // 当前激活的菜单 (修复路径匹配逻辑)
@@ -174,8 +197,6 @@ function handleMenuSelect(index: string) {
 
   // 1. 图标样式修正
   .el-icon {
-    width: 1em;
-    height: 1em;
     font-size: 18px; // 统一图标大小
     vertical-align: middle;
     text-align: center;
@@ -206,9 +227,6 @@ function handleMenuSelect(index: string) {
   }
 }
 
-// ---------------------------
-// 针对折叠模式的特殊修复 (关键)
-// ---------------------------
 :deep(.el-menu--collapse) {
   .el-sub-menu__title,
   .el-menu-item {

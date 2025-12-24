@@ -15,14 +15,14 @@ const formRef = ref<FormInstance>()
 const loading = ref(false)
 
 const loginForm = reactive({
-  username: '',
+  account: '',
   password: '',
 })
 
 const rules: FormRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度为 3-20 个字符', trigger: 'blur' },
+  account: [
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { min: 3, max: 50, message: '账号长度为 3-50 个字符', trigger: 'blur' },
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -67,8 +67,8 @@ async function handleLogin() {
         class="login-form"
         @keyup.enter="handleLogin"
       >
-        <ElFormItem prop="username">
-          <ElInput v-model="loginForm.username" placeholder="请输入用户名" size="large">
+        <ElFormItem prop="account">
+          <ElInput v-model="loginForm.account" placeholder="请输入手机号或邮箱" size="large">
             <!-- 使用 prefix 插槽替代 prefix-icon 属性 -->
             <template #prefix>
               <ElIcon :size="20" class="input-icon">
@@ -106,6 +106,12 @@ async function handleLogin() {
             {{ loading ? '登录中...' : '登 录' }}
           </ElButton>
         </ElFormItem>
+
+        <div class="form-options">
+          <el-link type="primary" :underline="false" @click="router.push('/forgot-password')">
+            忘记密码？
+          </el-link>
+        </div>
       </ElForm>
 
       <div class="login-footer">
@@ -187,6 +193,13 @@ async function handleLogin() {
   :deep(.el-input__suffix-inner svg) {
     width: 1em;
     height: 1em;
+  }
+
+  .form-options {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -10px;
+    margin-bottom: 20px;
   }
 }
 

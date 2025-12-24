@@ -40,11 +40,11 @@ service.interceptors.response.use(
     const res = response.data
 
     // 根据业务状态码处理
-    if (res.code !== 200) {
+    if (res.status !== 200) {
       ElMessage.error(res.message || '请求失败')
 
       // Token 过期或未授权
-      if (res.code === 401) {
+      if (res.status === 401) {
         removeToken()
         router.push('/login')
       }
@@ -132,4 +132,13 @@ export function del<T>(
   return service.delete(url, { params, ...config }).then((res) => res.data.data as T)
 }
 
-export default service
+/**
+ * Patch 请求
+ */
+export function patch<T>(
+  url: string,
+  data?: Record<string, unknown>,
+  config?: AxiosRequestConfig,
+): Promise<T> {
+  return service.patch(url, data, config).then((res) => res.data.data as T)
+}

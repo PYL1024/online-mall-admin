@@ -123,3 +123,74 @@ export function getUserDetail(userId: number): Promise<UserInfo> {
   }
   return get<UserInfo>(`/users/${userId}`)
 }
+
+/* =========================================
+   用户统计相关类型定义
+   ========================================= */
+
+/** 性别分布数据结构 */
+export interface GenderDistribution {
+  male: number
+  female: number
+  unknown: number
+}
+
+/** 年龄分布数据结构（与后端字段对应） */
+export interface AgeDistribution {
+  under18: number
+  '18-25': number
+  '26-35': number
+  '36-45': number
+  over45: number
+}
+
+/** 用户统计核心数据 */
+export interface UserStatsData {
+  totalUsers: number
+  activeUsers: number
+  newUsersToday: number
+  newUsersThisMonth: number
+  disabledUsers: number
+  genderDistribution: GenderDistribution
+  ageDistribution: AgeDistribution
+}
+
+/** 用户统计查询参数 */
+export interface UserStatisticsParams {
+  startTime?: string  // 格式: yyyy-mm-dd
+  endTime?: string    // 格式: yyyy-mm-dd
+}
+
+/**
+ * 获取用户统计看板数据
+ * @param params 可选的时间范围参数
+ * @returns Promise 包含用户统计数据
+ */
+export function getUserStatistics(params?: UserStatisticsParams): Promise<UserStatsData> {
+  if (USE_MOCK) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          totalUsers: 1000,
+          activeUsers: 800,
+          newUsersToday: 50,
+          newUsersThisMonth: 300,
+          disabledUsers: 20,
+          genderDistribution: {
+            male: 600,
+            female: 350,
+            unknown: 50,
+          },
+          ageDistribution: {
+            under18: 50,
+            '18-25': 300,
+            '26-35': 400,
+            '36-45': 200,
+            over45: 50,
+          },
+        })
+      }, 500)
+    })
+  }
+  return get<UserStatsData>('/admin/users/statistics', params as unknown as Record<string, unknown>)
+}

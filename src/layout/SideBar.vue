@@ -53,7 +53,7 @@ function handleMenuSelect(index: string) {
     <!-- Logo 区域 -->
     <div class="sidebar-logo">
       <img src="@/assets/logo.svg" alt="Logo" class="logo-img" />
-      <span v-show="!isCollapse" class="logo-text">电商管理平台</span>
+      <span v-show="!isCollapse" class="logo-text">Lenovo Admin</span>
     </div>
 
     <!-- 菜单区域 -->

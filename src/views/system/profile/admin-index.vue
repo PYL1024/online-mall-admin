@@ -16,7 +16,6 @@ const infoForm = reactive({
   username: '',
   phone: '',
   email: '',
-  gender: '',
   birthday: '',
   avatar: '',
   role: 1 as UserInfo['role'],
@@ -68,8 +67,7 @@ async function initData() {
     if (info) {
       infoForm.username = info.username
       infoForm.phone = info.phone
-      infoForm.email = info.email
-      infoForm.gender = info.gender
+      infoForm.email = info.email !== null ? info.email : ''
       infoForm.birthday = info.birthday || ''
       infoForm.avatar = info.avatar
       infoForm.role = info.role
@@ -196,13 +194,7 @@ onMounted(() => {
                 <el-form-item label="邮箱" prop="email">
                   <el-input v-model="infoForm.email" />
                 </el-form-item>
-                <el-form-item label="性别" prop="gender">
-                  <el-radio-group v-model="infoForm.gender">
-                    <el-radio value="男">男</el-radio>
-                    <el-radio value="女">女</el-radio>
-                    <el-radio value="未知">未知</el-radio>
-                  </el-radio-group>
-                </el-form-item>
+                <el-form-item label="性别" prop="gender"> </el-form-item>
                 <el-form-item label="生日" prop="birthday">
                   <el-date-picker
                     v-model="infoForm.birthday"

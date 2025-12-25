@@ -243,7 +243,10 @@ onMounted(() => {
         </el-table-column>
         <el-table-column prop="username" label="用户名" min-width="100" align="center" />
         <el-table-column prop="phone" label="电话" min-width="80" align="center" />
-        <el-table-column prop="email" label="邮箱" min-width="100" align="center">
+        <el-table-column label="邮箱" min-width="100" align="center">
+          <template #default="{ row }">
+            {{ row.email || '无' }}
+          </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="80" align="center">
           <template #default="{ row }">

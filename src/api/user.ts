@@ -207,7 +207,11 @@ export function updateUserStatus(
   data: { action: number; endTime?: number },
 ): Promise<void> {
   // if (USE_MOCK) return Promise.resolve()
-  return patch<void>(`/admin/users/status/${userId}`, data as unknown as Record<string, unknown>)
+  console.log(userId, data)
+  return patch<void>(
+    `/api/admin/users/status/${userId}`,
+    data as unknown as Record<string, unknown>,
+  )
 }
 
 /**
@@ -217,7 +221,7 @@ export function updateUserStatus(
  */
 export function deleteUser(userId: number): Promise<void> {
   // if (USE_MOCK) return Promise.resolve()
-  return del<void>(`/admin/users/delete/${userId}`)
+  return del<void>(`/api/admin/users/delete/${userId}`)
 }
 
 /**

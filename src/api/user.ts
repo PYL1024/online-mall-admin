@@ -15,27 +15,27 @@ const USE_MOCK = true
  * 用户登录
  */
 export async function login(data: LoginParams): Promise<LoginResult> {
-  if (USE_MOCK) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          token: 'mock-token-admin-123456',
-          userInfo: {
-            id: 1,
-            username: '超级管理员',
-            avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-            phone: '13800138000',
-            email: 'admin@example.com',
-            gender: '男',
-            status: 'active',
-            role: 2,
-            createdTime: '2023-01-01 11:45:14',
-            updatedTime: '2023-01-01 11:45:14',
-          },
-        } as LoginResult)
-      }, 500)
-    })
-  }
+  // if (USE_MOCK) {
+  //   return new Promise((resolve) => {
+  //     setTimeout(() => {
+  //       resolve({
+  //         token: 'mock-token-admin-123456',
+  //         userInfo: {
+  //           id: 1,
+  //           username: '超级管理员',
+  //           avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+  //           phone: '13800138000',
+  //           email: 'admin@example.com',
+  //           gender: '男',
+  //           status: 'active',
+  //           role: 2,
+  //           createdTime: '2023-01-01 11:45:14',
+  //           updatedTime: '2023-01-01 11:45:14',
+  //         },
+  //       } as LoginResult)
+  //     }, 500)
+  //   })
+  // }
   return post<LoginResult>('/api/admin/auth/login', data as unknown as Record<string, unknown>)
 }
 
@@ -43,7 +43,7 @@ export async function login(data: LoginParams): Promise<LoginResult> {
  * 重置密码
  */
 export function resetPassword(data: Record<string, string>): Promise<void> {
-  if (USE_MOCK) return Promise.resolve()
+  // if (USE_MOCK) return Promise.resolve()
   return post<void>('/api/admin/auth/reset-password', data)
 }
 
@@ -51,9 +51,9 @@ export function resetPassword(data: Record<string, string>): Promise<void> {
  * 用户退出登录
  */
 export function logout(): Promise<void> {
-  if (USE_MOCK) {
-    return Promise.resolve()
-  }
+  // if (USE_MOCK) {
+  //   return Promise.resolve()
+  // }
   return post<void>('/api/admin/signout')
 }
 
@@ -61,20 +61,20 @@ export function logout(): Promise<void> {
  * 获取当前管理员信息
  */
 export function getCurrentAdmin(): Promise<UserInfo> {
-  if (USE_MOCK) {
-    return Promise.resolve({
-      id: 1,
-      username: '超级管理员',
-      avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-      phone: '13800138000',
-      email: 'admin@example.com',
-      gender: '男',
-      status: 'active',
-      role: 2,
-      createdTime: '2023-01-01 11:45:14',
-      updatedTime: '2023-01-01 11:45:14',
-    } as UserInfo)
-  }
+  // if (USE_MOCK) {
+  //   return Promise.resolve({
+  //     id: 1,
+  //     username: '超级管理员',
+  //     avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+  //     phone: '13800138000',
+  //     email: 'admin@example.com',
+  //     gender: '男',
+  //     status: 'active',
+  //     role: 2,
+  //     createdTime: '2023-01-01 11:45:14',
+  //     updatedTime: '2023-01-01 11:45:14',
+  //   } as UserInfo)
+  // }
   return get<UserInfo>('/api/admin/info')
 }
 
@@ -153,7 +153,7 @@ export function getUserList(params: UserListParams): Promise<PageResult<UserInfo
     searchParams.set('keyword', params.keyword)
   }
   if (params.status !== undefined) {
-    searchParams.set('status', params.status.toString())
+    searchParams.set('status', params.status.toString() === 'active' ? '1' : '0')
   }
   if (params.role !== undefined) {
     searchParams.set('role', params.role.toString())
@@ -167,12 +167,12 @@ export function getUserList(params: UserListParams): Promise<PageResult<UserInfo
  * 获取管理员列表
  */
 export function getAdminList(params: UserListParams): Promise<PageResult<UserInfo>> {
-  if (USE_MOCK) {
-    // 复用 getUserList 的 Mock 逻辑，但强制过滤 role=1
-    return getUserList({ ...params, role: 1 })
-  }
+  // if (USE_MOCK) {
+  //   // 复用 getUserList 的 Mock 逻辑，但强制过滤 role=1
+  //   return getUserList({ ...params, role: 1 })
+  // }
   return get<PageResult<UserInfo>>(
-    '/admin/admins/list',
+    '/api/admin/admins/list',
     params as unknown as Record<string, unknown>,
   )
 }
@@ -182,7 +182,7 @@ export function getAdminList(params: UserListParams): Promise<PageResult<UserInf
  */
 export function addUser(data: UserForm): Promise<void> {
   if (USE_MOCK) return Promise.resolve()
-  return post<void>('/admin/users', { data })
+  return post<void>('/api/admin/users', { data })
 }
 
 /**
@@ -251,4 +251,75 @@ export function getUserDetail(userId: number): Promise<UserInfo> {
     } as UserInfo)
   }
   return get<UserInfo>(`/admin/users/${userId}`)
+}
+
+/* =========================================
+   用户统计相关类型定义
+   ========================================= */
+
+/** 性别分布数据结构 */
+export interface GenderDistribution {
+  male: number
+  female: number
+  unknown: number
+}
+
+/** 年龄分布数据结构（与后端字段对应） */
+export interface AgeDistribution {
+  under18: number
+  '18-25': number
+  '26-35': number
+  '36-45': number
+  over45: number
+}
+
+/** 用户统计核心数据 */
+export interface UserStatsData {
+  totalUsers: number
+  activeUsers: number
+  newUsersToday: number
+  newUsersThisMonth: number
+  disabledUsers: number
+  genderDistribution: GenderDistribution
+  ageDistribution: AgeDistribution
+}
+
+/** 用户统计查询参数 */
+export interface UserStatisticsParams {
+  startTime?: string // 格式: yyyy-mm-dd
+  endTime?: string // 格式: yyyy-mm-dd
+}
+
+/**
+ * 获取用户统计看板数据
+ * @param params 可选的时间范围参数
+ * @returns Promise 包含用户统计数据
+ */
+export function getUserStatistics(params?: UserStatisticsParams): Promise<UserStatsData> {
+  if (USE_MOCK) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          totalUsers: 1000,
+          activeUsers: 800,
+          newUsersToday: 50,
+          newUsersThisMonth: 300,
+          disabledUsers: 20,
+          genderDistribution: {
+            male: 600,
+            female: 350,
+            unknown: 50,
+          },
+          ageDistribution: {
+            under18: 50,
+            '18-25': 300,
+            '26-35': 400,
+            '36-45': 200,
+            over45: 50,
+          },
+        })
+      }, 500)
+    })
+  }
+  return get<UserStatsData>('/admin/users/statistics', params as unknown as Record<string, unknown>)
 }

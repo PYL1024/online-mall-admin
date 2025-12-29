@@ -9,7 +9,7 @@ import {
 import type { PageResult } from './model/common'
 
 // 模拟开关：如果为 true，则直接返回模拟数据，不请求后端
-const USE_MOCK = true
+const USE_MOCK = false
 
 /**
  * 管理员登录
@@ -191,5 +191,5 @@ export function getUserStatistics(params?: UserStatisticsParams): Promise<UserSt
       }, 500)
     })
   }
-  return get<UserStatsData>('/admin/users/statistics', params as unknown as Record<string, unknown>)
+  return get<UserStatsData>('/api/admin/users/statistics', params as unknown as Record<string, unknown>)
 }

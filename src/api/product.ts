@@ -1,75 +1,14 @@
 /**
  * 商品管理 API
- * 使用 Mock 数据模拟后端接口
+ * 分类接口已对接后端，商品部分仍使用 Mock 数据
  */
-
 import type { PageParams, PageResult } from './model/common'
 import type { Category, Product, ProductFilter, ProductForm } from './model/product'
+import { get, post, del, patch } from '@/utils/request'
 
-// ==================== Mock 数据 ====================
+const CATEGORY_BASE = '/api/admin/categories'
 
-/**
- * Mock 分类数据（笔记本商城）
- * 顶级：ThinkPad系列、拯救者系列、YOGA系列、ThinkBook系列、小新系列
- * 二级：产品1、产品2、产品3
- */
-const mockCategories: Category[] = [
-  {
-    id: 1,
-    name: 'ThinkPad系列',
-    parentId: 0,
-    sort: 1,
-    children: [
-      { id: 11, name: '产品1', parentId: 1, sort: 1, children: [] },
-      { id: 12, name: '产品2', parentId: 1, sort: 2, children: [] },
-      { id: 13, name: '产品3', parentId: 1, sort: 3, children: [] },
-    ],
-  },
-  {
-    id: 2,
-    name: '拯救者系列',
-    parentId: 0,
-    sort: 2,
-    children: [
-      { id: 21, name: '产品1', parentId: 2, sort: 1, children: [] },
-      { id: 22, name: '产品2', parentId: 2, sort: 2, children: [] },
-      { id: 23, name: '产品3', parentId: 2, sort: 3, children: [] },
-    ],
-  },
-  {
-    id: 3,
-    name: 'YOGA系列',
-    parentId: 0,
-    sort: 3,
-    children: [
-      { id: 31, name: '产品1', parentId: 3, sort: 1, children: [] },
-      { id: 32, name: '产品2', parentId: 3, sort: 2, children: [] },
-      { id: 33, name: '产品3', parentId: 3, sort: 3, children: [] },
-    ],
-  },
-  {
-    id: 4,
-    name: 'ThinkBook系列',
-    parentId: 0,
-    sort: 4,
-    children: [
-      { id: 41, name: '产品1', parentId: 4, sort: 1, children: [] },
-      { id: 42, name: '产品2', parentId: 4, sort: 2, children: [] },
-      { id: 43, name: '产品3', parentId: 4, sort: 3, children: [] },
-    ],
-  },
-  {
-    id: 5,
-    name: '小新系列',
-    parentId: 0,
-    sort: 5,
-    children: [
-      { id: 51, name: '产品1', parentId: 5, sort: 1, children: [] },
-      { id: 52, name: '产品2', parentId: 5, sort: 2, children: [] },
-      { id: 53, name: '产品3', parentId: 5, sort: 3, children: [] },
-    ],
-  },
-]
+// ==================== Mock 数据（商品） ====================
 
 /**
  * Mock 商品数据（示例与新分类对齐）
@@ -164,86 +103,89 @@ const mockProducts: Product[] = [
   },
 ]
 
-// 模拟延迟
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
 // ==================== 分类管理 API ====================
-
-let categoryIdCounter = 100
 
 /**
  * 获取分类树
  */
 export async function getCategoryTree(): Promise<Category[]> {
-  await delay(300)
-  return JSON.parse(JSON.stringify(mockCategories))
+  return get<Category[]>(CATEGORY_BASE)
 }
 
 /**
  * 获取扁平化分类列表（用于下拉选择）
  */
 export async function getCategoryList(): Promise<Category[]> {
-  await delay(200)
-  const flatList: Category[] = []
-
-  function flatten(categories: Category[], prefix = '') {
-    categories.forEach((cat) => {
-      flatList.push({
-        ...cat,
-        name: prefix + cat.name,
-        children: undefined,
-      })
-      if (cat.children && cat.children.length > 0) {
-        flatten(cat.children, prefix + '　')
-      }
-    })
-  }
-
-  flatten(mockCategories)
-  return flatList
+  const tree = await getCategoryTree()
+  return flattenCategories(tree)
 }
 
 /**
  * 添加分类
  */
-export async function addCategory(
-  _data: Omit<Category, 'id' | 'children'>,
-): Promise<{ id: number }> {
-  await delay(300)
-  categoryIdCounter++
-  // 实际项目中会添加到数据库，使用 _data 参数
-  void _data
-  return { id: categoryIdCounter }
+export async function addCategory(data: {
+  name: string
+  parentId?: number
+  sort?: number
+  subTitle?: string | null
+  themeColor?: string | null
+}): Promise<{ id: number }> {
+  return post<{ id: number }>(CATEGORY_BASE, {
+    parentId: 0,
+    sort: 0,
+    ...data,
+  })
 }
 
 /**
  * 更新分类
  */
-export async function updateCategory(_data: Omit<Category, 'children'>): Promise<void> {
-  await delay(300)
-  // 实际项目中会更新数据库，使用 _data 参数
-  void _data
+export async function updateCategory(data: {
+  id: number
+  name?: string
+  parentId?: number
+  sort?: number
+  subTitle?: string | null
+  themeColor?: string | null
+}): Promise<void> {
+  const { id, ...payload } = data
+  return patch<void>(`${CATEGORY_BASE}/${id}`, payload)
 }
 
 /**
  * 删除分类
  */
-export async function deleteCategory(_id: number): Promise<void> {
-  await delay(300)
-  // 实际项目中会删除数据库记录，使用 _id 参数
-  void _id
+export async function deleteCategory(id: number): Promise<void> {
+  return del<void>(`${CATEGORY_BASE}/${id}`)
 }
 
 /**
  * 更新分类排序
  */
 export async function updateCategorySort(
-  _data: { id: number; sort: number; parentId: number }[],
+  data: { id: number; sort: number; parentId: number }[],
 ): Promise<void> {
-  await delay(300)
-  // 实际项目中会批量更新排序，使用 _data 参数
-  void _data
+  return patch<void>(`${CATEGORY_BASE}/sort`, data)
 }
+
+function flattenCategories(categories: Category[], prefix = '', output: Category[] = []): Category[] {
+  categories.forEach((cat) => {
+    output.push({
+      ...cat,
+      name: prefix + cat.name,
+      children: undefined,
+    })
+
+    if (cat.children && cat.children.length > 0) {
+      flattenCategories(cat.children, prefix + '　', output)
+    }
+  })
+
+  return output
+}
+
+// 模拟延迟
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // ==================== 商品管理 API ====================
 

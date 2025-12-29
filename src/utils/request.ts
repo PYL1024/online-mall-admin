@@ -122,6 +122,17 @@ export function put<T>(
 }
 
 /**
+ * PATCH 请求
+ */
+export function patch<T>(
+  url: string,
+  data?: unknown,
+  config?: AxiosRequestConfig,
+): Promise<T> {
+  return service.patch(url, data, config).then((res) => res.data.data as T)
+}
+
+/**
  * DELETE 请求
  */
 export function del<T>(

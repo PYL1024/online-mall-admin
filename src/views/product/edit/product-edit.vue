@@ -220,7 +220,7 @@ function handleSkuChange(skuSpec: SkuSpec) {
 /**
  * 切换 SKU 启用状态
  */
-function handleSkuEnableChange(enabled: boolean) {
+function handleSkuEnableChange(enabled: string | number | boolean) {
   if (!enabled) {
     // 关闭 SKU 时清空数据
     productForm.skuSpec = {

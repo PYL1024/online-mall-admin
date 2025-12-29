@@ -113,10 +113,6 @@ async function handleLogin() {
           </el-link>
         </div>
       </ElForm>
-
-      <div class="login-footer">
-        <p>演示账号：admin / 123456</p>
-      </div>
     </div>
   </div>
 </template>
@@ -210,16 +206,5 @@ async function handleLogin() {
   font-weight: 600;
   border-radius: 8px;
   letter-spacing: 2px;
-}
-
-.login-footer {
-  text-align: center;
-  margin-top: 24px;
-
-  p {
-    font-size: 13px;
-    color: #909399;
-    margin: 0;
-  }
 }
 </style>

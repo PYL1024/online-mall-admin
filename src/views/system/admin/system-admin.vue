@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Delete, Refresh } from '@element-plus/icons-vue'
+import { Plus, Delete } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import {
-  UserRole,
-  type UserInfo,
-  type UserForm,
-  type SearchForm,
-  UserStatus,
-} from '@/api/model/user'
+import { UserRole, type UserInfo, type UserForm, type SearchForm } from '@/api/model/user'
 import * as UserApi from '@/api/user'
 
 // ========== 数据定义 ==========
@@ -41,7 +35,7 @@ const formData = reactive<UserForm>({
   password: '',
   phone: '',
   email: '',
-  status: UserStatus.ACTIVE,
+  status: 'active',
   role: UserRole.ADMIN,
 })
 
@@ -84,50 +78,10 @@ async function fetchData() {
 }
 
 // 搜索
-function handleSearch() {
-  pagination.currentPage = 1
-  fetchData()
-}
 
 // 重置筛选
-function handleReset() {
-  searchForm.keyword = ''
-  searchForm.status = undefined
-  handleSearch()
-}
 
 // 切换状态（封禁/解禁）
-async function handleStatusChange(row: UserInfo) {
-  const isBanning = row.status === UserStatus.DISABLED
-  const text = isBanning ? '封禁' : '解禁'
-
-  try {
-    let endTime: number | undefined
-    if (isBanning) {
-      const { value } = await ElMessageBox.prompt('请输入封禁时长（小时）', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        inputPattern: /^[1-9]\d*$/,
-        inputErrorMessage: '请输入正整数',
-        inputValue: '24',
-      })
-      endTime = parseInt(value)
-    }
-
-    await UserApi.updateUserStatus(row.id, {
-      action: isBanning ? 1 : 0,
-      endTime,
-    })
-
-    ElMessage.success(`${text}成功`)
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('更新状态失败:', error)
-      ElMessage.error(`${text}失败，请重试`)
-    }
-    row.status = isBanning ? UserStatus.ACTIVE : UserStatus.DISABLED
-  }
-}
 
 // 打开新增弹窗
 function handleAdd() {
@@ -138,7 +92,7 @@ function handleAdd() {
   formData.password = ''
   formData.phone = ''
   formData.email = ''
-  formData.status = UserStatus.ACTIVE
+  formData.status = 'active'
   formData.role = UserRole.ADMIN // 确保是管理员
 }
 
@@ -199,30 +153,6 @@ onMounted(() => {
 
 <template>
   <div class="app-container">
-    <!-- 搜索栏 -->
-    <el-card class="search-card" shadow="never">
-      <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item label="关键词">
-          <el-input
-            v-model="searchForm.keyword"
-            placeholder="用户名/手机号/邮箱"
-            clearable
-            @keyup.enter="handleSearch"
-          />
-        </el-form-item>
-        <el-form-item label="状态筛选">
-          <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 120px">
-            <el-option label="正常" :value="UserStatus.ACTIVE" />
-            <el-option label="禁用" :value="UserStatus.DISABLED" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
-          <el-button :icon="Refresh" @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
     <!-- 表格栏 -->
     <el-card class="table-card" shadow="never">
       <div class="table-toolbar">
@@ -239,19 +169,6 @@ onMounted(() => {
         <el-table-column prop="username" label="用户名" min-width="100" align="center" />
         <el-table-column prop="phone" label="电话" min-width="100" align="center" />
         <el-table-column prop="email" label="邮箱" min-width="150" align="center" />
-        <el-table-column prop="status" label="状态" width="80" align="center">
-          <template #default="{ row }">
-            <el-switch
-              v-model="row.status"
-              :active-value="UserStatus.ACTIVE"
-              :inactive-value="UserStatus.DISABLED"
-              inline-prompt
-              active-text="正常"
-              inactive-text="禁用"
-              @change="handleStatusChange(row)"
-            />
-          </template>
-        </el-table-column>
         <el-table-column prop="createdTime" label="创建时间" width="180" align="center" />
         <el-table-column label="操作" width="80" align="center" fixed="right">
           <template #default="{ row }">

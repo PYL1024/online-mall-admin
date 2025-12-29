@@ -5,6 +5,7 @@ import { User, Phone, Message, Calendar } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores'
 import * as UserApi from '@/api/user'
 import { UserRole, type UserInfo } from '@/api/model/user'
+import router from '@/router'
 
 const userStore = useUserStore()
 const loading = ref(false)
@@ -111,7 +112,8 @@ async function handlePwdSubmit() {
         newPassword: pwdForm.newPassword,
       })
       ElMessage.success('密码修改成功，请重新登录')
-      userStore.logout()
+      await userStore.logout()
+      router.push('/login')
     } catch (error) {
       console.error(error)
       ElMessage.error('修改失败')

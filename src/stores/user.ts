@@ -22,8 +22,9 @@ export const useUserStore = defineStore('user', () => {
     try {
       const result = await loginApi(params)
       token.value = result.token
-      userInfo.value = result.userInfo
       setToken(result.token)
+      const adminInfo = await getCurrentAdmin()
+      userInfo.value = adminInfo
       return result
     } catch (error) {
       throw error

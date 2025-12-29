@@ -10,6 +10,8 @@ export interface Category {
   name: string
   parentId: number // 父分类ID，0表示一级分类
   sort: number // 排序权重
+  subTitle?: string | null // 分类描述
+  themeColor?: string | null // 分类主题色
   children?: Category[] // 子分类
 }
 

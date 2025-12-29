@@ -3,13 +3,7 @@ import { reactive, ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Delete, Refresh } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import {
-  UserRole,
-  type UserInfo,
-  type UserForm,
-  type SearchForm,
-  UserStatus,
-} from '@/api/model/user'
+import { UserRole, type UserInfo, type UserForm, type SearchForm } from '@/api/model/user'
 import * as UserApi from '@/api/user'
 
 // ========== 数据定义 ==========
@@ -41,7 +35,7 @@ const formData = reactive<UserForm>({
   password: '',
   phone: '',
   email: '',
-  status: UserStatus.ACTIVE,
+  status: 'active',
   role: UserRole.ADMIN,
 })
 
@@ -98,7 +92,7 @@ function handleReset() {
 
 // 切换状态（封禁/解禁）
 async function handleStatusChange(row: UserInfo) {
-  const isBanning = row.status === UserStatus.DISABLED
+  const isBanning = row.status === 'disabled'
   const text = isBanning ? '封禁' : '解禁'
 
   try {
@@ -125,7 +119,7 @@ async function handleStatusChange(row: UserInfo) {
       console.error('更新状态失败:', error)
       ElMessage.error(`${text}失败，请重试`)
     }
-    row.status = isBanning ? UserStatus.ACTIVE : UserStatus.DISABLED
+    row.status = isBanning ? 'active' : 'disabled'
   }
 }
 
@@ -138,7 +132,7 @@ function handleAdd() {
   formData.password = ''
   formData.phone = ''
   formData.email = ''
-  formData.status = UserStatus.ACTIVE
+  formData.status = 'active'
   formData.role = UserRole.ADMIN // 确保是管理员
 }
 
@@ -212,8 +206,8 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="状态筛选">
           <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 120px">
-            <el-option label="正常" :value="UserStatus.ACTIVE" />
-            <el-option label="禁用" :value="UserStatus.DISABLED" />
+            <el-option label="正常" :value="'active'" />
+            <el-option label="禁用" :value="'disabled'" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -243,8 +237,8 @@ onMounted(() => {
           <template #default="{ row }">
             <el-switch
               v-model="row.status"
-              :active-value="UserStatus.ACTIVE"
-              :inactive-value="UserStatus.DISABLED"
+              :active-value="'active'"
+              :inactive-value="'disabled'"
               inline-prompt
               active-text="正常"
               inactive-text="禁用"

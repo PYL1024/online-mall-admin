@@ -20,7 +20,6 @@ const userStore = useUserStore()
 
 // 侧边栏是否折叠
 const isCollapse = computed(() => appStore.sidebarCollapsed)
-
 // 用户信息
 const username = computed(() => userStore.username || '管理员')
 const avatar = computed(() => userStore.avatar)

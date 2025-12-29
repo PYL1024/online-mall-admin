@@ -27,7 +27,7 @@ function hasPermission(route: RouteRecordRaw) {
   if (route.meta && route.meta.roles) {
     const userRole = userStore.userInfo?.role
     if (userRole === undefined) return false
-    return route.meta?.roles.includes(userRole)
+    return userRole !== null && route.meta?.roles.includes(userRole)
   }
   return true
 }

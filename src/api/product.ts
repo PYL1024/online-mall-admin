@@ -3,6 +3,7 @@
  * 使用 Mock 数据模拟后端接口
  */
 
+import { get, post, del } from '@/utils/request'
 import type { PageParams, PageResult } from './model/common'
 import type { Category, Product, ProductFilter, ProductForm } from './model/product'
 

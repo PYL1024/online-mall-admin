@@ -63,8 +63,8 @@ export function setupRouterGuard(router: Router) {
           // 检查权限
           const roles = to.meta?.roles as number[] | undefined
           if (roles && roles.length > 0) {
-            const userRole = userStore.userInfo.role
-            if (roles.includes(userRole)) {
+            const userRole = userStore.userInfo.role as number | undefined
+            if (userRole && roles.includes(userRole)) {
               next()
             } else {
               // 无权限，跳转到 404 或提示页面

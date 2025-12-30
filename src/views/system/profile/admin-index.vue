@@ -5,6 +5,7 @@ import { User, Phone, Message, Calendar } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores'
 import * as UserApi from '@/api/user'
 import { UserRole, type UserInfo } from '@/api/model/user'
+import router from '@/router'
 
 const userStore = useUserStore()
 const loading = ref(false)
@@ -16,7 +17,6 @@ const infoForm = reactive({
   username: '',
   phone: '',
   email: '',
-  gender: '',
   birthday: '',
   avatar: '',
   role: 1 as UserInfo['role'],
@@ -68,8 +68,7 @@ async function initData() {
     if (info) {
       infoForm.username = info.username
       infoForm.phone = info.phone
-      infoForm.email = info.email
-      infoForm.gender = info.gender
+      infoForm.email = info.email !== null ? info.email : ''
       infoForm.birthday = info.birthday || ''
       infoForm.avatar = info.avatar
       infoForm.role = info.role
@@ -113,7 +112,8 @@ async function handlePwdSubmit() {
         newPassword: pwdForm.newPassword,
       })
       ElMessage.success('密码修改成功，请重新登录')
-      userStore.logout()
+      await userStore.logout()
+      router.push('/login')
     } catch (error) {
       console.error(error)
       ElMessage.error('修改失败')
@@ -196,13 +196,7 @@ onMounted(() => {
                 <el-form-item label="邮箱" prop="email">
                   <el-input v-model="infoForm.email" />
                 </el-form-item>
-                <el-form-item label="性别" prop="gender">
-                  <el-radio-group v-model="infoForm.gender">
-                    <el-radio value="男">男</el-radio>
-                    <el-radio value="女">女</el-radio>
-                    <el-radio value="未知">未知</el-radio>
-                  </el-radio-group>
-                </el-form-item>
+                <el-form-item label="性别" prop="gender"> </el-form-item>
                 <el-form-item label="生日" prop="birthday">
                   <el-date-picker
                     v-model="infoForm.birthday"

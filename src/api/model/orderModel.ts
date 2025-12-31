@@ -1,5 +1,12 @@
 
 
+/*1.我发现订单详情页的下单时间不会显示，这是为什么？
+2.我希望“基础信息”表格中他们的宽度是固定的
+3.订单列表的“商品数”都是0该怎么解决？
+4.无论是在详情页还是列表页，如果一个“待支付”订单的创建时间距今已经过去15分钟，
+则将状态显示为“已超时”状态，并且不会显示“发货”按钮 */
+
+
 
 export interface BaseResponse<T> {
   status: number
@@ -30,7 +37,7 @@ export interface Order {
     refundReason?: null | string;//退款原因
     refundTime?: Date | null;//退款时间
     shippingFee?: number;//运费
-    shippingMethod?: string;//配送方式
+    shippingMethod?: string;//快递公司（顺丰之类的）
     shippingTime?: Date | null;//发货时间
     status?: string;//订单状态：待付款，待发货，待收货，已完成，已取消，退款中，退款成功，退款失败
     totalAmount?: number;//总价

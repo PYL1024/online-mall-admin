@@ -222,7 +222,7 @@ function handleViewDetail(orderSn: string) {
       <div class="card-header">
         <div>
           <h2 class="title">订单列表</h2>
-          <p class="sub-title">支持筛选、分页查看全部订单</p>
+          <p class="sub-title">支持筛选、分页查看全部订单(如需单独查看售后，请查看售后订单列表)</p>
         </div>
         <div class="header-actions">
           <el-button :icon="RefreshRight" @click="loadOrders">刷新</el-button>
@@ -255,7 +255,7 @@ function handleViewDetail(orderSn: string) {
           />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="选择状态" clearable style="width: 160px">
+          <el-select v-model="filters.status" placeholder="选择状态" clearable style="width: 140px">
             <el-option
               v-for="option in statusOptions"
               :key="String(option.value ?? 'all')"
@@ -264,10 +264,12 @@ function handleViewDetail(orderSn: string) {
             />
           </el-select>
         </el-form-item>
-        <el-form-item>
+
+        <el-form-item class="filter-actions">
           <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
         </el-form-item>
+
       </el-form>
 
       <el-table
@@ -280,14 +282,13 @@ function handleViewDetail(orderSn: string) {
       >
         <el-table-column prop="orderSn" label="订单号" min-width="160" show-overflow-tooltip />
 
-        <el-table-column label="用户" min-width="180">
+        <el-table-column label="用户ID" min-width="180" align="center">
           <template #default="{ row }">
-            <div class="cell-main">{{ row.username || '未知用户' }}</div>
-            <div class="cell-sub">ID: {{ row.userId ?? '-' }}</div>
+            <div class="cell-main">{{ row.userId ?? '-' }}</div>
           </template>
         </el-table-column>
 
-        <el-table-column label="收货人" min-width="180">
+        <el-table-column label="收货人" min-width="160">
           <template #default="{ row }">
             <div class="cell-main">{{ row.receiverName || '-' }}</div>
             <div class="cell-sub">{{ row.receiverPhone || '-' }}</div>
@@ -301,7 +302,11 @@ function handleViewDetail(orderSn: string) {
           </template>
         </el-table-column>
 
-        <el-table-column prop="itemCount" label="商品数" width="100" align="center" />
+        <el-table-column label="商品数" min-width="100" align="center">
+          <template #default="{ row }">
+            <div class="cell-main">{{row.itemCount ?? '-' }}</div>
+          </template>
+        </el-table-column>
 
         <el-table-column label="状态" width="120" align="center">
           <template #default="{ row }">
@@ -376,10 +381,25 @@ function handleViewDetail(orderSn: string) {
 }
 
 .filter-form {
-  padding: 12px;
+  padding: 10px 12px;
   background: #f6f7fb;
   border-radius: 8px;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-form :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.filter-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .order-table {

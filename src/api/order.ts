@@ -20,6 +20,7 @@
 
 // 导入现有的模型
 import type { BaseResponse, Order, OrderItem } from './model/orderModel';
+import { get, patch } from '@/utils/request'
 // 管理员订单管理API实现
 
 // 订单状态枚举
@@ -55,7 +56,7 @@ export interface AdminOrderListData {
   orders: AdminOrderListItem[]; // 订单列表
 }
 
-export interface AdminOrderListResponse extends BaseResponse<AdminOrderListData> {}
+export type AdminOrderListResponse = BaseResponse<AdminOrderListData>
 
 // 管理员订单操作类型枚举
 export enum AdminOrderAction {
@@ -107,45 +108,12 @@ export interface OrderDetailData {
  * @returns 订单列表
  */
 export async function getAdminOrderList(params?: GetAdminOrderListParams): Promise<AdminOrderListResponse> {
-  // 构建查询参数
-  const queryParams = new URLSearchParams();
-  
-  if (params?.page !== undefined) queryParams.append('page', params.page.toString());
-  if (params?.pageSize !== undefined) queryParams.append('pageSize', params.pageSize.toString());
-  if (params?.orderSn) queryParams.append('orderSn', params.orderSn);
-  if (params?.userId !== undefined) queryParams.append('userId', params.userId.toString());
-  if (params?.status !== undefined) queryParams.append('status', params.status.toString());
-  if (params?.phone) queryParams.append('phone', params.phone);
-
-  const queryString = queryParams.toString();
-  const url = `/api/admin/orders${queryString ? '?' + queryString : ''}`;
-  //const token= localStorage.getItem('token');
-  const token='eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxOSIsInJvbGUiOjIsImlhdCI6MTc2NTkzNDIzNSwiZXhwIjo0NzE3OTM0MjM1fQ.8k2ps1_BU2-Zpjr8XsR-zs9z6hPA-8fv6S5-sN3FLqRBFFkBif4EuUt1tnWL6lDA08nLIswecX10yyH7MOkd_Q';
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    }
-  });
-
-  if (!response.ok) {
-    // 根据不同的HTTP状态码抛出相应的错误
-    const errorResponse = await response.text();
-    let errorMessage = `HTTP error! status: ${response.status}`;
-    
-    try {
-      const errorObj = JSON.parse(errorResponse);
-      errorMessage = errorObj.message || errorMessage;
-    } catch {
-      // 如果无法解析错误响应，则使用默认错误消息
-    }
-    
-    throw new Error(errorMessage);
-  }
-
-  const result: AdminOrderListResponse = await response.json();
-  return result;
+  const data = await get<AdminOrderListData>('/api/admin/orders', params as unknown as Record<string, unknown>);
+  return {
+    status: 200,
+    message: 'success',
+    data,
+  };
 }
 
 /**
@@ -157,38 +125,16 @@ export async function getAdminOrderList(params?: GetAdminOrderListParams): Promi
  * @returns 更新结果
  */
 export async function updateAdminOrderStatus(orderSn: string, params: UpdateAdminOrderStatusRequest): Promise<BaseResponse<null>> {
-   //const token= localStorage.getItem('token');
-  const token='eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxOSIsInJvbGUiOjIsImlhdCI6MTc2NTkzNDIzNSwiZXhwIjo0NzE3OTM0MjM1fQ.8k2ps1_BU2-Zpjr8XsR-zs9z6hPA-8fv6S5-sN3FLqRBFFkBif4EuUt1tnWL6lDA08nLIswecX10yyH7MOkd_Q';
-  const response = await fetch(`/api/admin/orders/${orderSn}/status`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({
-      action: params.action,
-      shippingInfo: params.shippingInfo,
-      reason: params.reason
-    })
-  });
-
-  if (!response.ok) {
-    // 根据不同的HTTP状态码抛出相应的错误
-    const errorResponse = await response.text();
-    let errorMessage = `HTTP error! status: ${response.status}`;
-    
-    try {
-      const errorObj = JSON.parse(errorResponse);
-      errorMessage = errorObj.message || errorMessage;
-    } catch {
-      // 如果无法解析错误响应，则使用默认错误消息
-    }
-    
-    throw new Error(errorMessage);
-  }
-
-  const result: BaseResponse<null> = await response.json();
-  return result;
+  await patch<null>(`/api/admin/orders/${orderSn}/status`, {
+    action: params.action,
+    shippingInfo: params.shippingInfo,
+    reason: params.reason,
+  } as unknown as Record<string, unknown>);
+  return {
+    status: 200,
+    message: 'success',
+    data: null,
+  };
 }
 
 /**
@@ -197,31 +143,10 @@ export async function updateAdminOrderStatus(orderSn: string, params: UpdateAdmi
  * @returns 订单详情
  */
 export async function getOrderDetail(orderSn: number | string): Promise<BaseResponse<OrderDetailData>> {
-  //const token= localStorage.getItem('token');
-  const token='eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxOSIsInJvbGUiOjIsImlhdCI6MTc2NTkzNDIzNSwiZXhwIjo0NzE3OTM0MjM1fQ.8k2ps1_BU2-Zpjr8XsR-zs9z6hPA-8fv6S5-sN3FLqRBFFkBif4EuUt1tnWL6lDA08nLIswecX10yyH7MOkd_Q';
-  const response = await fetch(`/api/admin/orders/${orderSn}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`  
-    }
-  });
-
-  if (!response.ok) {
-    // 根据不同的HTTP状态码抛出相应的错误
-    const errorResponse = await response.text();
-    let errorMessage = `HTTP error! status: ${response.status}`;
-
-    try {
-      const errorObj = JSON.parse(errorResponse);
-      errorMessage = errorObj.message || errorMessage;
-    } catch {
-      // 如果无法解析错误响应，则使用默认错误消息
-    }
-
-    throw new Error(errorMessage);
-  }
-
-  const result: BaseResponse<OrderDetailData> = await response.json();
-  return result;
+  const data = await get<OrderDetailData>(`/api/admin/orders/${orderSn}`);
+  return {
+    status: 200,
+    message: 'success',
+    data,
+  };
 }

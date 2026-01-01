@@ -169,7 +169,7 @@ function resolveStatusCode(status?: string | number | null): OrderStatus | undef
 
 async function handleShip() {
   if (!order.value?.orderSn) return
-  shipForm.shippingMethod = shipForm.shippingMethod || shippingOptions[0].value
+  shipForm.shippingMethod = shipForm.shippingMethod || shippingOptions[0]?.value || 'KD'
   shipForm.trackingNumber = shipForm.trackingNumber.trim()
   if (!shipForm.trackingNumber) {
     ElMessage.warning('请填写快递单号')
@@ -242,7 +242,11 @@ function handleShippingMethodChange(value: string) {
 }
 
 function openShipDialog() {
-  const option = shippingOptions.find((o) => o.value === shipForm.shippingMethod) || shippingOptions[0]
+  const option =
+    shippingOptions.find((o) => o.value === shipForm.shippingMethod) || shippingOptions[0] || {
+      value: 'KD',
+      prefix: 'KD',
+    }
   shipForm.shippingMethod = option.value
   shipForm.trackingNumber = generateTrackingNumber(option.prefix)
   shipDialogVisible.value = true
@@ -297,12 +301,13 @@ function goBack() {
         <el-descriptions-item label="状态">
           <span :class="['status-text', `status-text--${statusInfo.tag}`]">{{ statusInfo.text }}</span>
         </el-descriptions-item>
+        <!-- 看不见下单时间 还有支付方式？ -->
         <el-descriptions-item label="下单时间">{{ formatDateTime(order?.createdAt) }}</el-descriptions-item>
-        <el-descriptions-item label="支付方式">{{ order?.paymentMethod || '-' }}</el-descriptions-item>
+        <!-- 支付方式前端没有传参，后端理所当然没数据 <el-descriptions-item label="支付方式">{{ order?.paymentMethod || '-' }}</el-descriptions-item> -->
         <el-descriptions-item label="支付时间">{{ formatDateTime(order?.payTime) }}</el-descriptions-item>
         <el-descriptions-item label="发货时间">{{ formatDateTime(order?.shippingTime) }}</el-descriptions-item>
         <el-descriptions-item label="完成时间">{{ formatDateTime(order?.confirmTime) }}</el-descriptions-item>
-        <el-descriptions-item label="更新时间">{{ formatDateTime(order?.updatedAt) }}</el-descriptions-item>
+        <!-- <el-descriptions-item label="更新时间">{{ formatDateTime(order?.updatedAt) }}</el-descriptions-item> -->
         <el-descriptions-item label="用户ID">{{ order?.userId ?? '-' }}</el-descriptions-item>
       </el-descriptions>
     </el-card>
@@ -367,6 +372,19 @@ function goBack() {
         <div class="section-sub">共 {{ items.length }} 件</div>
       </div>
       <el-table :data="items" border stripe empty-text="暂无商品" class="item-table">
+        <el-table-column label="图片" width="100" align="center">
+          <template #default="{ row }">
+            <el-image
+              v-if="row.mainImage"
+              :src="row.mainImage"
+              fit="cover"
+              class="item-thumb"
+              :preview-src-list="[row.mainImage]"
+              preview-teleported
+            />
+            <div v-else class="item-thumb item-thumb--placeholder">暂无</div>
+          </template>
+        </el-table-column>
         <el-table-column prop="productName" label="商品" min-width="180" show-overflow-tooltip />
         <el-table-column label="规格" min-width="170">
           <template #default="{ row }">{{ formatSkuSpecs(row.skuSpecs) }}</template>
@@ -534,6 +552,23 @@ function goBack() {
 
 .item-table {
   width: 100%;
+}
+
+.item-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #ebeef5;
+}
+
+.item-thumb--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  font-size: 12px;
+  background: #f8f9fb;
 }
 
 .empty-block {

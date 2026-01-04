@@ -301,13 +301,12 @@ function goBack() {
         <el-descriptions-item label="状态">
           <span :class="['status-text', `status-text--${statusInfo.tag}`]">{{ statusInfo.text }}</span>
         </el-descriptions-item>
-        <!-- 看不见下单时间 还有支付方式？ -->
         <el-descriptions-item label="下单时间">{{ formatDateTime(order?.createdAt) }}</el-descriptions-item>
         <!-- 支付方式前端没有传参，后端理所当然没数据 <el-descriptions-item label="支付方式">{{ order?.paymentMethod || '-' }}</el-descriptions-item> -->
         <el-descriptions-item label="支付时间">{{ formatDateTime(order?.payTime) }}</el-descriptions-item>
         <el-descriptions-item label="发货时间">{{ formatDateTime(order?.shippingTime) }}</el-descriptions-item>
         <el-descriptions-item label="完成时间">{{ formatDateTime(order?.confirmTime) }}</el-descriptions-item>
-        <!-- <el-descriptions-item label="更新时间">{{ formatDateTime(order?.updatedAt) }}</el-descriptions-item> -->
+        <el-descriptions-item label="更新时间">{{ formatDateTime(order?.updatedAt) }}</el-descriptions-item>
         <el-descriptions-item label="用户ID">{{ order?.userId ?? '-' }}</el-descriptions-item>
       </el-descriptions>
     </el-card>

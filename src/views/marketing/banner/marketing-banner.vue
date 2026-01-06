@@ -12,86 +12,20 @@ import { getCarouselList, deleteCarousel, addCarousel, type CarouselItem, type A
 
 /* ========================
    一、轮播图数据
-======================== */
-const bannerList = ref<CarouselItem[]>([])
-const loading = ref(true)
-
-/* ========================
-   二、新增轮播图表单
-======================== */
-const addDialogVisible = ref(false)
-const addLoading = ref(false)
-const addForm = reactive<AddCarouselParams>({
-  imgUrl: '',
-  linkUrl: '',
-  sortOrder: 0,
-  isActive: 1
-})
-
-const resetAddForm = () => {
-  addForm.imgUrl = ''
-  addForm.linkUrl = ''
-  addForm.sortOrder = 0
-  addForm.isActive = 1
-}
-
-const openAddDialog = () => {
-  resetAddForm()
-  addDialogVisible.value = true
-}
-
-const handleAddCarousel = async () => {
-  if (!addForm.imgUrl) {
-    ElMessage.warning('请输入图片URL')
-    return
-  }
-  
-  addLoading.value = true
-  try {
-    await addCarousel({
-      imgUrl: addForm.imgUrl,
-      linkUrl: addForm.linkUrl || undefined,
-      sortOrder: addForm.sortOrder,
-      isActive: addForm.isActive
-    })
-    ElMessage.success('新增轮播图成功')
-    addDialogVisible.value = false
-    fetchCarouselData()
-  } catch (error) {
-    console.error('新增轮播图失败:', error)
-    ElMessage.error('新增轮播图失败')
-  } finally {
-    addLoading.value = false
-  }
-}
-
-/* ========================
-   三、获取轮播图数据
-======================== */
-const fetchCarouselData = async () => {
-  loading.value = true
-  try {
-    const data = await getCarouselList()
-    console.log('轮播图数据:', data) // 调试：查看返回数据
-    bannerList.value = data
-    if (data.length === 0) {
-      ElMessage.warning('暂无轮播图数据')
-    } else {
-      ElMessage.success(`成功加载 ${data.length} 条轮播图`)
-    }
-  } catch (error) {
-    console.error('获取轮播图失败:', error)
-    ElMessage.error('获取轮播图失败')
-  } finally {
-    loading.value = false
-  }
+   TODO: 等待后端提供轮播图管理API后对接
+   预计接口：
+   GET /api/admin/banners - 获取轮播图列表
+   POST /api/admin/banners - 创建轮播图
+   PUT /api/admin/banners/{id} - 更新轮播图
+   DELETE /api/admin/banners/{id} - 删除轮播图
 }
 
 /* ========================
    四、状态切换
 ======================== */
 const handleStatusChange = () => {
-  ElMessage.success('状态已更新（模拟）')
+  // TODO: 对接真实API后，调用更新状态接口
+  ElMessage.info('请等待后端提供状态更新API')
 }
 
 /* ========================

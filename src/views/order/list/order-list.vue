@@ -21,8 +21,6 @@ const loading = ref(false)
 const orders = ref<AdminOrderListItem[]>([])
 const total = ref(0)
 
-const FILTER_STORAGE_KEY = 'admin-order-list-filters'
-
 const filters = reactive<OrderListFilters>({
   page: 1,
   pageSize: 20,

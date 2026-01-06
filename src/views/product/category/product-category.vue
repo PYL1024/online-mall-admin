@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
  * 商品分类管理页面
- * 功能：树形表格展示分类、新增/编辑/删除分类、拖拽排序
+ * 功能：树形表格展示分类，支持增删改操作
  */
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import {
+  ElCard,
   ElButton,
   ElTable,
   ElTableColumn,
@@ -12,73 +13,63 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
-  ElInputNumber,
   ElMessage,
   ElMessageBox,
-  ElIcon,
   ElEmpty,
 } from 'element-plus'
-import { Plus, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Refresh, Top, Bottom } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import type { Category } from '@/api/model/product'
 import {
   getCategoryTree,
   addCategory,
   updateCategory,
   deleteCategory,
-  updateCategorySort,
+  type CategoryCreateRequest,
+  type CategoryUpdateRequest,
 } from '@/api/product'
+import type { Category } from '@/api/model/product'
 
 // ==================== 状态定义 ====================
 
 // 加载状态
 const loading = ref(false)
 
-// 分类树数据
-const categoryTree = ref<Category[]>([])
+// 分类列表
+const categoryList = ref<Category[]>([])
 
-// 弹窗相关
+// 弹窗状态
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增分类')
+const dialogMode = ref<'add' | 'edit'>('add')
+
+// 表单引用
 const formRef = ref<FormInstance>()
 
 // 表单数据
-const categoryForm = reactive<{
-  id?: number
+const formData = ref<{
+  id?: number | string
   name: string
-  parentId: number
-  sort: number
+  subTitle: string
 }>({
   name: '',
-  parentId: 0,
-  sort: 0,
+  subTitle: '',
 })
 
-// 表单验证规则
+// 表单校验规则
 const formRules: FormRules = {
   name: [
     { required: true, message: '请输入分类名称', trigger: 'blur' },
-    { min: 2, max: 20, message: '分类名称长度为 2-20 个字符', trigger: 'blur' },
+    { min: 2, max: 20, message: '名称长度在 2 到 20 个字符', trigger: 'blur' },
   ],
-  sort: [{ required: true, message: '请输入排序值', trigger: 'blur' }],
 }
 
-// 当前编辑的父分类名称（用于显示）
-const parentCategoryName = computed(() => {
-  if (categoryForm.parentId === 0) return '无（一级分类）'
-  // 递归查找父分类名称
-  const findName = (categories: Category[], id: number): string => {
-    for (const cat of categories) {
-      if (cat.id === id) return cat.name
-      if (cat.children) {
-        const found = findName(cat.children, id)
-        if (found) return found
-      }
-    }
-    return ''
-  }
-  return findName(categoryTree.value, categoryForm.parentId) || '未知分类'
-})
+// 提交状态
+const submitting = ref(false)
+
+// ==================== 计算属性 ====================
+
+// 是否有数据
+const hasData = computed(() => categoryList.value.length > 0)
 
 // ==================== 生命周期 ====================
 
@@ -89,116 +80,102 @@ onMounted(() => {
 // ==================== 数据加载 ====================
 
 /**
- * 加载分类树数据
+ * 加载分类列表
  */
 async function loadCategories() {
   loading.value = true
   try {
-    categoryTree.value = await getCategoryTree()
-  } catch (error) {
-    console.error('加载分类失败:', error)
-    ElMessage.error('加载分类数据失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-// ==================== 分类操作 ====================
-
-/**
- * 打开新增分类弹窗
- * @param parentId 父分类ID，0表示新增一级分类
- */
-function handleAdd(parentId = 0) {
-  dialogTitle.value = parentId === 0 ? '新增一级分类' : '新增子分类'
-  categoryForm.id = undefined
-  categoryForm.name = ''
-  categoryForm.parentId = parentId
-  categoryForm.sort = 0
-  dialogVisible.value = true
-}
-
-/**
- * 打开编辑分类弹窗
- */
-function handleEdit(row: Category) {
-  dialogTitle.value = '编辑分类'
-  categoryForm.id = row.id
-  categoryForm.name = row.name
-  categoryForm.parentId = row.parentId
-  categoryForm.sort = row.sort
-  dialogVisible.value = true
-}
-
-/**
- * 删除分类
- */
-async function handleDelete(row: Category) {
-  // 检查是否有子分类
-  if (row.children && row.children.length > 0) {
-    ElMessage.warning('该分类下存在子分类，请先删除子分类')
-    return
-  }
-
-  try {
-    await ElMessageBox.confirm(`确定要删除分类「${row.name}」吗？删除后不可恢复。`, '确认删除', {
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
-      type: 'warning',
+    const list = await getCategoryTree()
+    // 解析当前 themeColor 为数字，按数字排序（无效归为末尾）
+    const parsed = list.map((item) => {
+      const n = parseInt(String(item.themeColor ?? ''), 10)
+      const sort = Number.isFinite(n) && n > 0 ? n : Infinity
+      return { raw: item, sort }
     })
 
-    loading.value = true
-    await deleteCategory(row.id)
-    ElMessage.success('删除成功')
-    await loadCategories()
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除分类失败:', error)
-      ElMessage.error('删除分类失败')
+    parsed.sort((a, b) => a.sort - b.sort)
+
+    // 重新分配连续序号（1..N），并记录需要同步到后端的项
+    const toUpdate: { id: number | string; name: string; subTitle: string | null; themeColor: string | null }[] = []
+    const normalized: Category[] = []
+
+    parsed.forEach((p, idx) => {
+      const desired = idx + 1
+      const currentRaw = p.raw
+      const currentNum = parseInt(String(currentRaw.themeColor ?? ''), 10) || 0
+      // 如果当前不等于期望，则需更新后端
+      if (currentNum !== desired) {
+        toUpdate.push({
+          id: currentRaw.id,
+          name: currentRaw.name,
+          subTitle: currentRaw.subTitle ?? null,
+          themeColor: String(desired),
+        })
+        // 在本地也写入新的 themeColor
+        normalized.push({ ...currentRaw, themeColor: String(desired) })
+      } else {
+        normalized.push({ ...currentRaw, themeColor: String(currentNum) })
+      }
+    })
+
+    // 若有需要同步到后端的更改，按顺序逐个更新（可改为批量API）
+    if (toUpdate.length > 0) {
+      try {
+        for (const u of toUpdate) {
+          // 使用 updateCategory 同步 themeColor 字段
+          // 注意：updateCategory 接口会把 null 替换成空字符串，传入 themeColor 字符串即可
+          await updateCategory({ id: u.id, name: u.name, subTitle: u.subTitle, themeColor: u.themeColor })
+        }
+      } catch (err) {
+        console.error('同步排序到后端失败:', err)
+        // 继续，将本地视图更新为规范化结果，用户可再次刷新
+      }
     }
+
+    categoryList.value = normalized
+  } catch (error) {
+    console.error('加载分类失败:', error)
+    ElMessage.error('加载分类列表失败')
   } finally {
     loading.value = false
   }
 }
 
 /**
- * 提交表单
+ * 获取当前最大序号
  */
-async function handleSubmit() {
-  if (!formRef.value) return
+function getMaxSort(): number {
+  if (categoryList.value.length === 0) return 0
+  return Math.max(...categoryList.value.map(c => parseInt(c.themeColor || '0') || 0))
+}
 
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
+// ==================== 弹窗操作 ====================
 
-    loading.value = true
-    try {
-      if (categoryForm.id) {
-        // 编辑
-        await updateCategory({
-          id: categoryForm.id,
-          name: categoryForm.name,
-          parentId: categoryForm.parentId,
-          sort: categoryForm.sort,
-        })
-        ElMessage.success('更新成功')
-      } else {
-        // 新增
-        await addCategory({
-          name: categoryForm.name,
-          parentId: categoryForm.parentId,
-          sort: categoryForm.sort,
-        })
-        ElMessage.success('添加成功')
-      }
-      dialogVisible.value = false
-      await loadCategories()
-    } catch (error) {
-      console.error('保存分类失败:', error)
-      ElMessage.error('保存分类失败')
-    } finally {
-      loading.value = false
-    }
-  })
+/**
+ * 打开新增弹窗
+ */
+function handleAdd() {
+  dialogMode.value = 'add'
+  dialogTitle.value = '新增分类'
+  formData.value = {
+    name: '',
+    subTitle: '',
+  }
+  dialogVisible.value = true
+}
+
+/**
+ * 打开编辑弹窗
+ */
+function handleEdit(row: Category) {
+  dialogMode.value = 'edit'
+  dialogTitle.value = '编辑分类'
+  formData.value = {
+    id: row.id,
+    name: row.name,
+    subTitle: row.subTitle || '',
+  }
+  dialogVisible.value = true
 }
 
 /**
@@ -209,300 +186,416 @@ function handleClose() {
   formRef.value?.resetFields()
 }
 
-// ==================== 拖拽排序 ====================
+// ==================== 表单提交 ====================
+
+/**
+ * 提交表单
+ */
+async function handleSubmit() {
+  if (!formRef.value) return
+
+  await formRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    // 检查是否有重名
+    const isDuplicate = categoryList.value.some(
+      (cat) =>
+        cat.name === formData.value.name &&
+        (dialogMode.value === 'add' || cat.id !== formData.value.id)
+    )
+
+    if (isDuplicate) {
+      ElMessage.warning('分类名称已存在，请使用其他名称')
+      return
+    }
+
+    submitting.value = true
+
+    try {
+      if (dialogMode.value === 'add') {
+        // 新增分类，序号为当前最大序号+1
+        const newSort = getMaxSort() + 1
+        const request: CategoryCreateRequest = {
+          name: formData.value.name,
+          subTitle: formData.value.subTitle || null,
+          themeColor: String(newSort),
+        }
+        await addCategory(request)
+        ElMessage.success('新增分类成功')
+      } else {
+        // 更新分类，保持原有序号
+        const currentCategory = categoryList.value.find(c => c.id === formData.value.id)
+        const request: CategoryUpdateRequest = {
+          id: formData.value.id!,
+          name: formData.value.name,
+          subTitle: formData.value.subTitle || null,
+          themeColor: currentCategory?.themeColor || null,
+        }
+        await updateCategory(request)
+        ElMessage.success('更新分类成功')
+      }
+
+      handleClose()
+      loadCategories()
+    } catch (error) {
+      console.error('操作失败:', error)
+      // 错误消息已在 request.ts 中处理
+    } finally {
+      submitting.value = false
+    }
+  })
+}
+
+// ==================== 删除操作 ====================
+
+/**
+ * 删除分类
+ */
+async function handleDelete(row: Category) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除分类「${row.name}」吗？删除后无法恢复。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    loading.value = true
+    const deletedSort = parseInt(row.themeColor || '0') || 0
+
+    // 先删除分类
+    await deleteCategory(row.id)
+
+    // 更新后续分类的序号（序号大于被删除分类的，都减1）
+    const categoriesToUpdate = categoryList.value.filter(c => {
+      const sort = parseInt(c.themeColor || '0') || 0
+      return sort > deletedSort
+    })
+
+    for (const cat of categoriesToUpdate) {
+      const currentSort = parseInt(cat.themeColor || '0') || 0
+      const request: CategoryUpdateRequest = {
+        id: cat.id,
+        name: cat.name,
+        subTitle: cat.subTitle || null,
+        themeColor: String(currentSort - 1),
+      }
+      await updateCategory(request)
+    }
+
+    ElMessage.success('删除成功')
+    loadCategories()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// ==================== 排序操作 ====================
 
 /**
  * 上移分类
  */
-async function handleMoveUp(row: Category, index: number, siblings: Category[]) {
-  if (index === 0) {
-    ElMessage.warning('已经是第一个了')
-    return
-  }
+async function handleMoveUp(index: number) {
+  if (index <= 0) return
 
-  const prevItem = siblings[index - 1]
-  const updates = [
-    { id: row.id, sort: prevItem.sort, parentId: row.parentId },
-    { id: prevItem.id, sort: row.sort, parentId: prevItem.parentId },
-  ]
+  const currentItem = categoryList.value[index]
+  const prevItem = categoryList.value[index - 1]
+  if (!currentItem || !prevItem) return
 
+  loading.value = true
   try {
-    await updateCategorySort(updates)
-    ElMessage.success('排序更新成功')
+    // 交换两个分类的序号
+    const currentSort = currentItem.themeColor
+    const prevSort = prevItem.themeColor
+
+    // 更新当前分类的序号
+    await updateCategory({
+      id: currentItem.id,
+      name: currentItem.name,
+      subTitle: currentItem.subTitle || null,
+      themeColor: prevSort || null,
+    })
+
+    // 更新上一个分类的序号
+    await updateCategory({
+      id: prevItem.id,
+      name: prevItem.name,
+      subTitle: prevItem.subTitle || null,
+      themeColor: currentSort || null,
+    })
+
+    // 重新加载列表
     await loadCategories()
   } catch (error) {
-    console.error('排序失败:', error)
-    ElMessage.error('排序失败')
+    console.error('上移失败:', error)
+    ElMessage.error('操作失败')
+  } finally {
+    loading.value = false
   }
 }
 
 /**
  * 下移分类
  */
-async function handleMoveDown(row: Category, index: number, siblings: Category[]) {
-  if (index === siblings.length - 1) {
-    ElMessage.warning('已经是最后一个了')
-    return
-  }
+async function handleMoveDown(index: number) {
+  if (index >= categoryList.value.length - 1) return
 
-  const nextItem = siblings[index + 1]
-  const updates = [
-    { id: row.id, sort: nextItem.sort, parentId: row.parentId },
-    { id: nextItem.id, sort: row.sort, parentId: nextItem.parentId },
-  ]
+  const currentItem = categoryList.value[index]
+  const nextItem = categoryList.value[index + 1]
+  if (!currentItem || !nextItem) return
 
+  loading.value = true
   try {
-    await updateCategorySort(updates)
-    ElMessage.success('排序更新成功')
+    // 交换两个分类的序号
+    const currentSort = currentItem.themeColor
+    const nextSort = nextItem.themeColor
+
+    // 更新当前分类的序号
+    await updateCategory({
+      id: currentItem.id,
+      name: currentItem.name,
+      subTitle: currentItem.subTitle || null,
+      themeColor: nextSort || null,
+    })
+
+    // 更新下一个分类的序号
+    await updateCategory({
+      id: nextItem.id,
+      name: nextItem.name,
+      subTitle: nextItem.subTitle || null,
+      themeColor: currentSort || null,
+    })
+
+    // 重新加载列表
     await loadCategories()
   } catch (error) {
-    console.error('排序失败:', error)
-    ElMessage.error('排序失败')
+    console.error('下移失败:', error)
+    ElMessage.error('操作失败')
+  } finally {
+    loading.value = false
   }
-}
-
-/**
- * 获取同级分类列表
- */
-function getSiblings(row: Category): Category[] {
-  if (row.parentId === 0) {
-    return categoryTree.value
-  }
-
-  // 递归查找父分类的 children
-  const findParent = (categories: Category[]): Category[] => {
-    for (const cat of categories) {
-      if (cat.id === row.parentId) {
-        return cat.children || []
-      }
-      if (cat.children) {
-        const found = findParent(cat.children)
-        if (found.length > 0) return found
-      }
-    }
-    return []
-  }
-
-  return findParent(categoryTree.value)
-}
-
-/**
- * 获取当前项在同级中的索引
- */
-function getSiblingIndex(row: Category): number {
-  const siblings = getSiblings(row)
-  return siblings.findIndex((item) => item.id === row.id)
 }
 </script>
 
 <template>
-  <div class="category-container">
-    <!-- 页面头部 -->
-    <div class="page-header">
-      <h2 class="page-title">商品分类管理</h2>
-      <ElButton type="primary" @click="handleAdd(0)">
-        <ElIcon><Plus /></ElIcon>
-        新增一级分类
-      </ElButton>
-    </div>
+  <div class="product-category">
+    <!-- 页面标题和操作栏 -->
+    <ElCard shadow="never" class="header-card">
+      <div class="header-content">
+        <div class="header-left">
+          <h2 class="page-title">分类管理</h2>
+          <span class="category-count">共 {{ categoryList.length }} 个分类</span>
+        </div>
+        <div class="header-right">
+          <ElButton :icon="Refresh" @click="loadCategories" :loading="loading">
+            刷新
+          </ElButton>
+          <ElButton type="primary" :icon="Plus" @click="handleAdd">
+            新增分类
+          </ElButton>
+        </div>
+      </div>
+    </ElCard>
 
-    <!-- 提示信息 -->
-    <div class="tips-area">
-      <p>💡 提示：支持多级分类管理，可通过上移/下移按钮调整分类顺序</p>
-    </div>
-
-    <!-- 分类树形表格 -->
-    <div class="table-container">
+    <!-- 分类表格 -->
+    <ElCard shadow="never" class="table-card">
       <ElTable
+        :data="categoryList"
         v-loading="loading"
-        :data="categoryTree"
         row-key="id"
         border
-        default-expand-all
+        stripe
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        empty-text="暂无分类数据"
       >
-        <ElTableColumn prop="name" label="分类名称" min-width="200">
+        <ElTableColumn prop="id" label="ID" width="80" align="center" />
+
+        <ElTableColumn label="排序" width="120" align="center">
+          <template #default="{ row, $index }">
+            <div class="sort-buttons">
+              <ElButton
+                :icon="Top"
+                link
+                size="small"
+                :disabled="$index === 0"
+                @click="handleMoveUp($index)"
+                title="上移"
+              />
+              <span class="sort-number">{{ row.themeColor || '-' }}</span>
+              <ElButton
+                :icon="Bottom"
+                link
+                size="small"
+                :disabled="$index === categoryList.length - 1"
+                @click="handleMoveDown($index)"
+                title="下移"
+              />
+            </div>
+          </template>
+        </ElTableColumn>
+
+        <ElTableColumn prop="name" label="分类名称" min-width="150">
           <template #default="{ row }">
             <span class="category-name">{{ row.name }}</span>
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="id" label="分类ID" width="100" align="center" />
-
-        <ElTableColumn prop="sort" label="排序" width="100" align="center">
+        <ElTableColumn prop="subTitle" label="描述" min-width="200">
           <template #default="{ row }">
-            <span class="sort-value">{{ row.sort }}</span>
+            <span class="category-subtitle">{{ row.subTitle || '-' }}</span>
           </template>
         </ElTableColumn>
 
-        <ElTableColumn label="操作" width="320" align="center" fixed="right">
+        <ElTableColumn label="操作" width="160" align="center" fixed="right">
           <template #default="{ row }">
-            <div class="action-buttons">
-              <ElButton type="primary" link size="small" @click="handleAdd(row.id)">
-                <ElIcon><Plus /></ElIcon>
-                添加子分类
-              </ElButton>
-              <ElButton type="primary" link size="small" @click="handleEdit(row)">
-                <ElIcon><Edit /></ElIcon>
-                编辑
-              </ElButton>
-              <ElButton
-                type="primary"
-                link
-                size="small"
-                @click="handleMoveUp(row, getSiblingIndex(row), getSiblings(row))"
-              >
-                上移
-              </ElButton>
-              <ElButton
-                type="primary"
-                link
-                size="small"
-                @click="handleMoveDown(row, getSiblingIndex(row), getSiblings(row))"
-              >
-                下移
-              </ElButton>
-              <ElButton type="danger" link size="small" @click="handleDelete(row)">
-                <ElIcon><Delete /></ElIcon>
-                删除
-              </ElButton>
-            </div>
+            <ElButton
+              type="primary"
+              link
+              :icon="Edit"
+              @click="handleEdit(row)"
+            >
+              编辑
+            </ElButton>
+            <ElButton
+              type="danger"
+              link
+              :icon="Delete"
+              @click="handleDelete(row)"
+            >
+              删除
+            </ElButton>
           </template>
         </ElTableColumn>
-
-        <!-- 空状态 -->
-        <template #empty>
-          <ElEmpty description="暂无分类数据" />
-        </template>
       </ElTable>
-    </div>
+
+      <!-- 空状态 -->
+      <ElEmpty v-if="!loading && !hasData" description="暂无分类，点击上方按钮添加">
+        <ElButton type="primary" :icon="Plus" @click="handleAdd">
+          新增分类
+        </ElButton>
+      </ElEmpty>
+    </ElCard>
 
     <!-- 新增/编辑弹窗 -->
     <ElDialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="500px"
+      width="560px"
       :close-on-click-modal="false"
       @close="handleClose"
     >
       <ElForm
         ref="formRef"
-        :model="categoryForm"
+        :model="formData"
         :rules="formRules"
         label-width="100px"
-        class="category-form"
+        label-position="right"
       >
-        <ElFormItem label="父级分类">
-          <ElInput :model-value="parentCategoryName" disabled />
-        </ElFormItem>
-
         <ElFormItem label="分类名称" prop="name">
           <ElInput
-            v-model="categoryForm.name"
+            v-model="formData.name"
             placeholder="请输入分类名称"
             maxlength="20"
             show-word-limit
           />
         </ElFormItem>
 
-        <ElFormItem label="排序" prop="sort">
-          <ElInputNumber
-            v-model="categoryForm.sort"
-            :min="0"
-            :max="9999"
-            placeholder="数值越小越靠前"
+        <ElFormItem label="描述" prop="subTitle">
+          <ElInput
+            v-model="formData.subTitle"
+            type="textarea"
+            placeholder="请输入分类描述（可选）"
+            :rows="3"
+            maxlength="100"
+            show-word-limit
           />
-          <span class="form-tip">数值越小，排序越靠前</span>
         </ElFormItem>
       </ElForm>
 
       <template #footer>
-        <div class="dialog-footer">
-          <ElButton @click="handleClose">取消</ElButton>
-          <ElButton type="primary" :loading="loading" @click="handleSubmit">
-            {{ categoryForm.id ? '保存修改' : '确认添加' }}
-          </ElButton>
-        </div>
+        <ElButton @click="handleClose">取消</ElButton>
+        <ElButton type="primary" @click="handleSubmit" :loading="submitting">
+          {{ dialogMode === 'add' ? '新增' : '保存' }}
+        </ElButton>
       </template>
     </ElDialog>
   </div>
 </template>
 
-<style lang="scss" scoped>
-.category-container {
+<style scoped lang="scss">
+.product-category {
   padding: 20px;
-  background: #fff;
-  border-radius: 8px;
-  min-height: calc(100vh - 140px);
-}
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #ebeef5;
+  .header-card {
+    margin-bottom: 20px;
 
-  .page-title {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: #303133;
-  }
-}
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
 
-.tips-area {
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: #f5f7fa;
-  border-radius: 4px;
+      .header-left {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
 
-  p {
-    margin: 0;
-    font-size: 13px;
-    color: #909399;
-  }
-}
+        .page-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: #303133;
+          margin: 0;
+        }
 
-.table-container {
-  .category-name {
-    font-weight: 500;
+        .category-count {
+          font-size: 14px;
+          color: #909399;
+        }
+      }
+
+      .header-right {
+        display: flex;
+        gap: 10px;
+      }
+    }
   }
 
-  .sort-value {
-    color: #909399;
-  }
+  .table-card {
+    .category-name {
+      font-weight: 500;
+      color: #303133;
+    }
 
-  .action-buttons {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-}
+    .category-subtitle {
+      color: #606266;
+      font-size: 13px;
+    }
 
-.category-form {
-  padding: 10px 20px 0;
+    .sort-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
 
-  .form-tip {
-    margin-left: 12px;
-    font-size: 12px;
-    color: #909399;
-  }
-}
+      .sort-number {
+        min-width: 24px;
+        text-align: center;
+        font-weight: 500;
+        color: #606266;
+      }
 
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
+      .el-button {
+        padding: 4px;
 
-:deep(.el-table) {
-  .el-table__row {
-    &:hover {
-      .action-buttons {
-        opacity: 1;
+        &:disabled {
+          opacity: 0.3;
+        }
       }
     }
   }

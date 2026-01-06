@@ -176,8 +176,6 @@ function handleDelete(row: UserInfo) {
   })
     .then(async () => {
       await UserApi.deleteUser(row.id)
-      // await UserApi.deleteUser(row.id)
-      await new Promise((resolve) => setTimeout(resolve, 300)) // Mock
       ElMessage.success('删除成功')
       fetchData()
     })

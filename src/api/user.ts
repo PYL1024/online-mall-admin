@@ -8,9 +8,6 @@ import {
 } from './model/user'
 import type { PageResult } from './model/common'
 
-// 模拟开关：如果为 true，则直接返回模拟数据，不请求后端
-const USE_MOCK = false
-
 /**
  * 管理员登录
  */
@@ -166,30 +163,5 @@ export interface UserStatisticsParams {
  * @returns Promise 包含用户统计数据
  */
 export function getUserStatistics(params?: UserStatisticsParams): Promise<UserStatsData> {
-  if (USE_MOCK) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          totalUsers: 1000,
-          activeUsers: 800,
-          newUsersToday: 50,
-          newUsersThisMonth: 300,
-          disabledUsers: 20,
-          genderDistribution: {
-            male: 600,
-            female: 350,
-            unknown: 50,
-          },
-          ageDistribution: {
-            under18: 50,
-            '18-25': 300,
-            '26-35': 400,
-            '36-45': 200,
-            over45: 50,
-          },
-        })
-      }, 500)
-    })
-  }
   return get<UserStatsData>('/api/admin/users/statistics', params as unknown as Record<string, unknown>)
 }

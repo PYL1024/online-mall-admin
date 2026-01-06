@@ -38,13 +38,14 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const res = response.data
+    const bizStatus = res.status ?? res.code ?? 200
 
     // 根据业务状态码处理
-    if (res.status !== 200) {
+    if (bizStatus !== 200) {
       ElMessage.error(res.message || '请求失败')
 
       // Token 过期或未授权
-      if (res.status === 401) {
+      if (bizStatus === 401) {
         removeToken()
         router.push('/login')
       }
@@ -122,6 +123,17 @@ export function put<T>(
 }
 
 /**
+ * PATCH 请求
+ */
+export function patch<T>(
+  url: string,
+  data?: unknown,
+  config?: AxiosRequestConfig,
+): Promise<T> {
+  return service.patch(url, data, config).then((res) => res.data.data as T)
+}
+
+/**
  * DELETE 请求
  */
 export function del<T>(
@@ -132,13 +144,4 @@ export function del<T>(
   return service.delete(url, { params, ...config }).then((res) => res.data.data as T)
 }
 
-/**
- * Patch 请求
- */
-export function patch<T>(
-  url: string,
-  data?: Record<string, unknown>,
-  config?: AxiosRequestConfig,
-): Promise<T> {
-  return service.patch(url, data, config).then((res) => res.data.data as T)
-}
+

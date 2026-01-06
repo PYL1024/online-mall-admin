@@ -1,352 +1,534 @@
 /**
  * 商品管理 API
- * 使用 Mock 数据模拟后端接口
+ * 分类和商品接口已对接后端
  */
-
-import { get, post, del } from '@/utils/request'
 import type { PageParams, PageResult } from './model/common'
-import type { Category, Product, ProductFilter, ProductForm } from './model/product'
+import type {
+  Category,
+  Product,
+  ProductFilter,
+  ProductForm,
+  ProductCreateRequest,
+  ProductCreateResponse,
+  BatchUpdateStatusRequest,
+  ProductListResponse,
+  ProductDetailResponse,
+} from './model/product'
+import { get, post, del, put } from '@/utils/request'
 
-// ==================== Mock 数据 ====================
-
-/**
- * Mock 分类数据（笔记本商城）
- * 顶级：ThinkPad系列、拯救者系列、YOGA系列、ThinkBook系列、小新系列
- * 二级：产品1、产品2、产品3
- */
-const mockCategories: Category[] = [
-  {
-    id: 1,
-    name: 'ThinkPad系列',
-    parentId: 0,
-    sort: 1,
-    children: [
-      { id: 11, name: '产品1', parentId: 1, sort: 1, children: [] },
-      { id: 12, name: '产品2', parentId: 1, sort: 2, children: [] },
-      { id: 13, name: '产品3', parentId: 1, sort: 3, children: [] },
-    ],
-  },
-  {
-    id: 2,
-    name: '拯救者系列',
-    parentId: 0,
-    sort: 2,
-    children: [
-      { id: 21, name: '产品1', parentId: 2, sort: 1, children: [] },
-      { id: 22, name: '产品2', parentId: 2, sort: 2, children: [] },
-      { id: 23, name: '产品3', parentId: 2, sort: 3, children: [] },
-    ],
-  },
-  {
-    id: 3,
-    name: 'YOGA系列',
-    parentId: 0,
-    sort: 3,
-    children: [
-      { id: 31, name: '产品1', parentId: 3, sort: 1, children: [] },
-      { id: 32, name: '产品2', parentId: 3, sort: 2, children: [] },
-      { id: 33, name: '产品3', parentId: 3, sort: 3, children: [] },
-    ],
-  },
-  {
-    id: 4,
-    name: 'ThinkBook系列',
-    parentId: 0,
-    sort: 4,
-    children: [
-      { id: 41, name: '产品1', parentId: 4, sort: 1, children: [] },
-      { id: 42, name: '产品2', parentId: 4, sort: 2, children: [] },
-      { id: 43, name: '产品3', parentId: 4, sort: 3, children: [] },
-    ],
-  },
-  {
-    id: 5,
-    name: '小新系列',
-    parentId: 0,
-    sort: 5,
-    children: [
-      { id: 51, name: '产品1', parentId: 5, sort: 1, children: [] },
-      { id: 52, name: '产品2', parentId: 5, sort: 2, children: [] },
-      { id: 53, name: '产品3', parentId: 5, sort: 3, children: [] },
-    ],
-  },
-]
-
-/**
- * Mock 商品数据（示例与新分类对齐）
- */
-const mockProducts: Product[] = [
-  {
-    id: 1,
-    name: 'ThinkPad X1 Carbon 2024',
-    categoryId: 11,
-    categoryName: '产品1',
-    mainImage: 'https://picsum.photos/200/200?random=101',
-    images: [
-      'https://picsum.photos/400/400?random=101',
-      'https://picsum.photos/400/400?random=102',
-      'https://picsum.photos/400/400?random=103',
-    ],
-    price: 12999,
-    originalPrice: 13999,
-    stock: 80,
-    status: 1,
-    description: '<p>ThinkPad X1 Carbon，轻薄商务本，碳纤维机身。</p>',
-    skuSpec: {
-      colors: ['黑色', '银色'],
-      memories: ['16GB/512GB', '32GB/1TB'],
-      combinations: [
-        { color: '黑色', memory: '16GB/512GB', stock: 20, price: 12999 },
-        { color: '黑色', memory: '32GB/1TB', stock: 15, price: 14999 },
-        { color: '银色', memory: '16GB/512GB', stock: 25, price: 12999 },
-      ],
-    },
-    createTime: '2024-02-15 10:30:00',
-    updateTime: '2024-02-20 14:20:00',
-  },
-  {
-    id: 2,
-    name: '拯救者 Y9000P 2024',
-    categoryId: 21,
-    categoryName: '产品1',
-    mainImage: 'https://picsum.photos/200/200?random=104',
-    images: ['https://picsum.photos/400/400?random=104', 'https://picsum.photos/400/400?random=105'],
-    price: 9999,
-    originalPrice: 10999,
-    stock: 60,
-    status: 1,
-    description: '<p>拯救者 Y9000P，高性能游戏本，双风扇散热系统。</p>',
-    createTime: '2024-02-10 09:00:00',
-    updateTime: '2024-02-18 16:00:00',
-  },
-  {
-    id: 3,
-    name: 'YOGA 14s 2024',
-    categoryId: 31,
-    categoryName: '产品1',
-    mainImage: 'https://picsum.photos/200/200?random=106',
-    images: ['https://picsum.photos/400/400?random=106'],
-    price: 7999,
-    originalPrice: 8999,
-    stock: 40,
-    status: 1,
-    description: '<p>YOGA 14s，轻薄便携，高清触控屏。</p>',
-    createTime: '2024-02-08 11:00:00',
-    updateTime: '2024-02-15 10:00:00',
-  },
-  {
-    id: 4,
-    name: 'ThinkBook 14+ 2024',
-    categoryId: 41,
-    categoryName: '产品1',
-    mainImage: 'https://picsum.photos/200/200?random=107',
-    images: ['https://picsum.photos/400/400?random=107'],
-    price: 6999,
-    stock: 35,
-    status: 0,
-    description: '<p>ThinkBook 14+，全能轻薄本，性价比之选。</p>',
-    createTime: '2024-02-05 14:00:00',
-    updateTime: '2024-02-10 09:00:00',
-  },
-  {
-    id: 5,
-    name: '小新 Pro 14 2024',
-    categoryId: 51,
-    categoryName: '产品1',
-    mainImage: 'https://picsum.photos/200/200?random=108',
-    images: ['https://picsum.photos/400/400?random=108'],
-    price: 5999,
-    originalPrice: 6499,
-    stock: 50,
-    status: 1,
-    description: '<p>小新 Pro 14，2.8K 高刷屏，金属机身。</p>',
-    createTime: '2024-02-03 16:00:00',
-    updateTime: '2024-02-12 11:00:00',
-  },
-]
-
-// 模拟延迟
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const CATEGORY_BASE = '/api/admin/categories'
+const CATEGORY_LIST = '/api/products/category/list'
+const PRODUCT_BASE = '/api/admin/products'
+const PRODUCT_LIST = '/api/products'
 
 // ==================== 分类管理 API ====================
 
-let categoryIdCounter = 100
+/**
+ * 分类请求/响应类型定义
+ */
+export interface CategoryCreateRequest {
+  name: string
+  subTitle?: string | null
+  themeColor?: string | null
+}
+
+export interface CategoryUpdateRequest {
+  id: number | string
+  name: string
+  subTitle: string | null
+  themeColor: string | null
+}
+
+export interface CategoryCreateResponse {
+  id: string
+}
 
 /**
  * 获取分类树
+ * GET /api/products/category/list
  */
 export async function getCategoryTree(): Promise<Category[]> {
-  await delay(300)
-  return JSON.parse(JSON.stringify(mockCategories))
+  type RawCategory = {
+    id: string | number
+    name: string
+    subTitle?: string | null
+    themeColor?: string | null
+  }
+
+  // 后端返回结构是 { data: { data: [...] } }，需要处理嵌套
+  const response = await get<{ data: RawCategory[] } | RawCategory[]>(CATEGORY_LIST)
+
+  // 兼容两种返回格式
+  const list: RawCategory[] = Array.isArray(response) ? response : (response as { data: RawCategory[] }).data
+
+  // 后端返回为扁平列表，这里补齐树形结构字段
+  return list.map((item, index) => ({
+    id: typeof item.id === 'string' ? parseInt(item.id, 10) : item.id,
+    name: item.name,
+    parentId: 0,
+    sort: index,
+    subTitle: item.subTitle ?? null,
+    themeColor: item.themeColor ?? null,
+  }))
 }
 
 /**
  * 获取扁平化分类列表（用于下拉选择）
  */
 export async function getCategoryList(): Promise<Category[]> {
-  await delay(200)
-  const flatList: Category[] = []
-
-  function flatten(categories: Category[], prefix = '') {
-    categories.forEach((cat) => {
-      flatList.push({
-        ...cat,
-        name: prefix + cat.name,
-        children: undefined,
-      })
-      if (cat.children && cat.children.length > 0) {
-        flatten(cat.children, prefix + '　')
-      }
-    })
-  }
-
-  flatten(mockCategories)
-  return flatList
+  const tree = await getCategoryTree()
+  return flattenCategories(tree)
 }
 
 /**
  * 添加分类
+ * POST /api/admin/categories
+ * 创建新的商品分类，parentId=0表示一级分类
  */
-export async function addCategory(
-  _data: Omit<Category, 'id' | 'children'>,
-): Promise<{ id: number }> {
-  await delay(300)
-  categoryIdCounter++
-  // 实际项目中会添加到数据库，使用 _data 参数
-  void _data
-  return { id: categoryIdCounter }
+export async function addCategory(data: CategoryCreateRequest): Promise<CategoryCreateResponse> {
+  // 构建请求体，移除空值字段或使用空字符串
+  const requestBody: Record<string, string> = {
+    name: data.name,
+  }
+
+  // 只有非空值才添加到请求体
+  if (data.subTitle) {
+    requestBody.subTitle = data.subTitle
+  }
+  if (data.themeColor) {
+    requestBody.themeColor = data.themeColor
+  }
+
+  return post<CategoryCreateResponse>(CATEGORY_BASE, requestBody)
 }
 
 /**
  * 更新分类
+ * POST /api/admin/categories/update
+ * 注意要检测id和name不能重复
  */
-export async function updateCategory(_data: Omit<Category, 'children'>): Promise<void> {
-  await delay(300)
-  // 实际项目中会更新数据库，使用 _data 参数
-  void _data
+export async function updateCategory(data: CategoryUpdateRequest): Promise<void> {
+  // 构建请求体
+  const requestBody: Record<string, string | number> = {
+    id: typeof data.id === 'string' ? parseInt(data.id, 10) : data.id,
+    name: data.name,
+  }
+
+  // subTitle 和 themeColor 使用空字符串代替 null
+  requestBody.subTitle = data.subTitle || ''
+  requestBody.themeColor = data.themeColor || ''
+
+  return post<void>(`${CATEGORY_BASE}/update`, requestBody)
 }
 
 /**
  * 删除分类
+ * DELETE /api/admin/categories/{id}
+ * 删除指定ID的分类，需检查是否有子分类或商品占用
  */
-export async function deleteCategory(_id: number): Promise<void> {
-  await delay(300)
-  // 实际项目中会删除数据库记录，使用 _id 参数
-  void _id
+export async function deleteCategory(id: number | string): Promise<void> {
+  return del<void>(`${CATEGORY_BASE}/${id}`)
 }
 
 /**
- * 更新分类排序
+ * 更新分类排序（本地排序，后端暂不支持）
+ * @deprecated 当前API不支持排序功能
  */
 export async function updateCategorySort(
   _data: { id: number; sort: number; parentId: number }[],
 ): Promise<void> {
-  await delay(300)
-  // 实际项目中会批量更新排序，使用 _data 参数
-  void _data
+  // 后端API暂不支持排序功能，此函数保留用于未来扩展
+  console.warn('排序功能暂不支持')
+  return Promise.resolve()
+}
+
+function flattenCategories(categories: Category[], prefix = '', output: Category[] = []): Category[] {
+  categories.forEach((cat) => {
+    output.push({
+      ...cat,
+      name: prefix + cat.name,
+      children: undefined,
+    })
+
+    if (cat.children && cat.children.length > 0) {
+      flattenCategories(cat.children, prefix + '　', output)
+    }
+  })
+
+  return output
 }
 
 // ==================== 商品管理 API ====================
 
-let productIdCounter = 100
-
 /**
  * 获取商品列表
+ * GET /api/products
  */
 export async function getProductList(
   params: PageParams & ProductFilter,
 ): Promise<PageResult<Product>> {
-  await delay(400)
-
-  let filteredProducts = [...mockProducts]
-
-  // 筛选条件
-  if (params.categoryId) {
-    filteredProducts = filteredProducts.filter((p) => p.categoryId === params.categoryId)
+  // 构建查询参数
+  const queryParams: Record<string, unknown> = {
+    page: params.page,
+    pageSize: params.pageSize,
   }
-  if (params.status !== undefined) {
-    filteredProducts = filteredProducts.filter((p) => p.status === params.status)
-  }
+
+  // 可选参数
   if (params.keyword) {
-    const keyword = params.keyword.toLowerCase()
-    filteredProducts = filteredProducts.filter((p) => p.name.toLowerCase().includes(keyword))
+    queryParams.keyword = params.keyword
+  }
+  if (params.categoryId !== undefined && params.categoryId !== '') {
+    queryParams.categoryId = params.categoryId
   }
   if (params.priceMin !== undefined) {
-    filteredProducts = filteredProducts.filter((p) => p.price >= params.priceMin!)
+    queryParams.minPrice = params.priceMin
   }
   if (params.priceMax !== undefined) {
-    filteredProducts = filteredProducts.filter((p) => p.price <= params.priceMax!)
+    queryParams.maxPrice = params.priceMax
   }
 
-  // 分页
-  const total = filteredProducts.length
-  const start = (params.page - 1) * params.pageSize
-  const list = filteredProducts.slice(start, start + params.pageSize)
+  const response = await get<any>(PRODUCT_LIST, queryParams)
+
+  // 为了给商品补全 categoryId，我们需要拿分类树做匹配
+  let categories: Category[] = []
+  try {
+    categories = await getCategoryTree()
+  } catch (e) {
+    console.error('获取分类树失败，无法补全 ID:', e)
+  }
+
+  // 建立双向映射：名称 -> ID 和 ID -> 名称
+  const categoryMap = new Map<string, string | number>()
+  const idToNameMap = new Map<string | number, string>()
+  const flatten = (items: Category[]) => {
+    items.forEach((cat) => {
+      categoryMap.set(cat.name, cat.id)
+      idToNameMap.set(cat.id, cat.name)
+      if (cat.children) flatten(cat.children)
+    })
+  }
+  if (categories.length > 0) flatten(categories)
+
+  // 兼容处理：后端返回字段名为 productSimple (小写p)
+  const rawList = Array.isArray(response)
+    ? response
+    : response.productSimple || response.ProductSimple || response.data || response.list || []
+
+  const total = response.total || (Array.isArray(response) ? response.length : 0)
+
+  // 转换后端数据格式并串行/并行获取详情以获取完整数据（如 categoryId 需要通过 tag 映射）
+  const list: Product[] = await Promise.all(
+    rawList.map(async (item: any) => {
+      // 获取商品详情以获取更完整的信息
+      const detail = await getProductDetail(item.id)
+
+      // 计算最终的分类 ID
+      const categoryId =
+        item.categoryId ||
+        detail?.categoryId ||
+        (item.tag ? categoryMap.get(item.tag) : 0) ||
+        0
+
+      return {
+        id: item.id,
+        name: item.name,
+        categoryId,
+        // 优先使用详情接口返回的分类名称，其次是标签，最后通过ID映射
+        categoryName: detail?.categoryName || item.tag || idToNameMap.get(categoryId) || '',
+        mainImage: detail?.mainImage || item.image || item.mainImage || '',
+        images: detail?.images && detail.images.length > 0 ? detail.images : [item.image || ''],
+        price: detail?.price || item.price || 0,
+        stock: detail?.stock || item.stock || 0,
+        status: item.status ?? 1,
+        description: detail?.description || item.description || '',
+        tag: item.tag,
+      }
+    }),
+  )
 
   return {
     list,
-    total,
-    page: params.page,
-    pageSize: params.pageSize,
+    total: total,
+    page: response.page || params.page,
+    pageSize: Number(response.pageSize || params.pageSize),
   }
 }
 
 /**
  * 获取商品详情
+ * GET /api/products/{id}
  */
 export async function getProductDetail(id: number): Promise<Product | null> {
-  await delay(300)
-  return mockProducts.find((p) => p.id === id) || null
+  try {
+    const response = await get<ProductDetailResponse>(`${PRODUCT_LIST}/${id}`)
+
+    // 解析价格范围，取最低价
+    let price = 0
+    if (response.priceRange) {
+      const match = response.priceRange.match(/[\d.]+/)
+      if (match) {
+        price = parseFloat(match[0])
+      }
+    }
+
+    // 计算总库存
+    const totalStock = response.skus?.reduce((sum, sku) => sum + sku.stock, 0) || 0
+
+    // 转换后端数据格式为前端格式
+    const product: Product = {
+      id: response.id,
+      name: response.name,
+      categoryId: response.categoryId || 0,
+      categoryName: response.categoryName || '',
+      mainImage: response.mainImages?.[0] || '',
+      images: response.mainImages || [],
+      price,
+      stock: totalStock,
+      status: 1,
+      description: response.detailHtml || response.desc || '',
+      params: response.params, // 保留原始参数
+      skuSpec: {
+        cpus: response.specs?.find(s => s.name === '处理器' || s.name === 'CPU')?.values || [],
+        rams: response.specs?.find(s => s.name === '内存容量' || s.name === '内存')?.values || [],
+        storages: response.specs?.find(s => s.name === '存储容量' || s.name === '存储')?.values || [],
+        gpus: response.specs?.find(s => s.name === '显卡' || s.name === '显卡规格')?.values || [],
+        combinations: response.skus?.map(s => ({
+          id: s.id,
+          cpu: String((s.specs as any).cpu || ''),
+          ram: String((s.specs as any).ram || (s.specs as any).memory || ''),
+          storage: String((s.specs as any).storage || ''),
+          gpu: String((s.specs as any).gpu || ''),
+          stock: s.stock,
+          price: s.price
+        })) || []
+      }
+    }
+
+    return product
+  } catch (error) {
+    console.error('获取商品详情失败:', error)
+    return null
+  }
 }
 
 /**
  * 添加商品
+ * POST /api/admin/products
+ * 创建新的商品，名称不能重复
  */
-export async function addProduct(_data: ProductForm): Promise<{ id: number }> {
-  await delay(500)
-  productIdCounter++
-  // 实际项目中会使用 _data 参数添加到数据库
-  void _data
-  return { id: productIdCounter }
+export async function addProduct(data: ProductForm): Promise<ProductCreateResponse> {
+  // 组装主图数组：优先主图，其次轮播图
+  const mainImages: string[] = []
+  if (data.mainImage) mainImages.push(data.mainImage)
+  if (Array.isArray(data.images) && data.images.length > 0) {
+    mainImages.push(...data.images.filter(Boolean))
+  }
+
+  // 组装图文详情：将详情图片转成简单的 <img> HTML 片段
+  const detailHtmlFromImages = Array.isArray(data.detailImages)
+    ? data.detailImages
+        .filter(Boolean)
+        .map((url) => `<p><img src="${url}" style="max-width:100%;" /></p>`)
+        .join('\n')
+    : ''
+
+  // 组装规格
+  const specs: ProductSpec[] = []
+  if (data.skuSpec) {
+    if (data.skuSpec.cpus?.length) specs.push({ name: '处理器', values: data.skuSpec.cpus })
+    if (data.skuSpec.rams?.length) specs.push({ name: '内存容量', values: data.skuSpec.rams })
+    if (data.skuSpec.storages?.length) specs.push({ name: '存储容量', values: data.skuSpec.storages })
+    if (data.skuSpec.gpus?.length) specs.push({ name: '显卡', values: data.skuSpec.gpus })
+  }
+
+  // 组装 SKU (使用英文 key)
+  const skus = data.skuSpec?.combinations.map((c) => ({
+    id: c.id,
+    price: Number(c.price) || 0,
+    stock: Number(c.stock) || 0,
+    specs: {
+      cpu: c.cpu,
+      ram: c.ram,
+      storage: c.storage,
+      gpu: c.gpu,
+    },
+  }))
+
+  // 将前端表单数据转换为后端API所需格式
+  const requestBody: ProductCreateRequest = {
+    category_id: data.categoryId,
+    name: data.name,
+    description: data.description || '',
+    price: data.price ? Number(data.price) : 0,
+    stock: data.stock ? Number(data.stock) : 0,
+    image: data.mainImage || '',
+    detail_html: detailHtmlFromImages || data.description || '',
+    main_images: mainImages.length ? mainImages : [],
+    specs: specs.length ? specs : undefined,
+    skus: skus?.length ? skus : undefined,
+
+    // 注入技术参数并转换为 snake_case
+    model: data.params?.model,
+    os: data.params?.os,
+    positioning: data.params?.positioning,
+    cpu_model: data.params?.cpuModel,
+    cpu_series: data.params?.cpuSeries,
+    max_turbo_freq: data.params?.maxTurboFreq,
+    cpu_chip: data.params?.cpuChip,
+    screen_size: data.params?.screenSize,
+    screen_ratio: data.params?.screenRatio,
+    resolution: data.params?.resolution,
+    color_gamut: data.params?.colorGamut,
+    refresh_rate: data.params?.refreshRate,
+    ram_type: data.params?.ramType,
+    ssd_type: data.params?.ssdType,
+    gpu_type: data.params?.gpuType,
+    vram_type: data.params?.vramType,
+    camera: data.params?.camera,
+    wifi: data.params?.wifi,
+    bluetooth: data.params?.bluetooth,
+    data_interfaces: data.params?.dataInterfaces,
+    video_interfaces: data.params?.videoInterfaces,
+    audio_interfaces: data.params?.audioInterfaces,
+    keyboard: data.params?.keyboard,
+    face_id: data.params?.faceId,
+    weight: data.params?.weight,
+    thickness: data.params?.thickness,
+    software: data.params?.software,
+  }
+
+  // 调试日志：查看发送的请求数据
+  console.log('📦 addProduct 发送给后端的数据摘要:', {
+    name: requestBody.name,
+    category_id: requestBody.category_id,
+    price: requestBody.price,
+    skusCount: skus?.length || 0,
+  })
+
+  const response = await post<ProductCreateResponse>(PRODUCT_BASE, requestBody as unknown as Record<string, unknown>)
+
+  console.log('✅ addProduct 响应数据:', response)
+
+  return response
 }
 
 /**
  * 更新商品
+ * PUT /api/admin/products/{id}
+ * 更新商品信息，名称不能重复且不能为空
  */
-export async function updateProduct(_data: ProductForm): Promise<void> {
-  await delay(500)
-  // 实际项目中会更新数据库，使用 _data 参数
-  void _data
+export async function updateProduct(data: ProductForm): Promise<ProductCreateResponse> {
+  if (!data.id) {
+    throw new Error('商品ID不能为空')
+  }
+
+  const mainImages: string[] = []
+  if (data.mainImage) mainImages.push(data.mainImage)
+  if (Array.isArray(data.images) && data.images.length > 0) {
+    mainImages.push(...data.images.filter(Boolean))
+  }
+
+  // 组装图文详情：将详情图片转成简单的 <img> HTML 片段
+  const detailHtmlFromImages = Array.isArray(data.detailImages)
+    ? data.detailImages
+        .filter(Boolean)
+        .map((url) => `<p><img src="${url}" style="max-width:100%;" /></p>`)
+        .join('\n')
+    : ''
+
+  // 组装规格
+  const specs: ProductSpec[] = []
+  if (data.skuSpec) {
+    if (data.skuSpec.cpus?.length) specs.push({ name: '处理器', values: data.skuSpec.cpus })
+    if (data.skuSpec.rams?.length) specs.push({ name: '内存容量', values: data.skuSpec.rams })
+    if (data.skuSpec.storages?.length) specs.push({ name: '存储容量', values: data.skuSpec.storages })
+    if (data.skuSpec.gpus?.length) specs.push({ name: '显卡', values: data.skuSpec.gpus })
+  }
+
+  // 组装 SKU
+  const skus = data.skuSpec?.combinations.map((c) => ({
+    id: c.id,
+    price: Number(c.price) || 0,
+    stock: Number(c.stock) || 0,
+    specs: {
+      cpu: c.cpu,
+      ram: c.ram,
+      storage: c.storage,
+      gpu: c.gpu,
+    },
+  }))
+
+  // 将前端表单数据转换为后端API所需格式
+  const requestBody: ProductCreateRequest = {
+    category_id: data.categoryId ? Number(data.categoryId) : null,
+    name: data.name,
+    description: data.description || '',
+    price: data.price ? Number(data.price) : 0,
+    stock: data.stock ? Number(data.stock) : 0,
+    image: data.mainImage || '',
+    detail_html: detailHtmlFromImages || data.description || '',
+    main_images: mainImages.length ? mainImages : [],
+    specs: specs.length ? specs : undefined,
+    skus: skus?.length ? skus : undefined,
+
+    // 注入技术参数并转换为 snake_case
+    model: data.params?.model,
+    os: data.params?.os,
+    positioning: data.params?.positioning,
+    cpu_model: data.params?.cpuModel,
+    cpu_series: data.params?.cpuSeries,
+    max_turbo_freq: data.params?.maxTurboFreq,
+    cpu_chip: data.params?.cpuChip,
+    screen_size: data.params?.screenSize,
+    screen_ratio: data.params?.screenRatio,
+    resolution: data.params?.resolution,
+    color_gamut: data.params?.colorGamut,
+    refresh_rate: data.params?.refreshRate,
+    ram_type: data.params?.ramType,
+    ssd_type: data.params?.ssdType,
+    gpu_type: data.params?.gpuType,
+    vram_type: data.params?.vramType,
+    camera: data.params?.camera,
+    wifi: data.params?.wifi,
+    bluetooth: data.params?.bluetooth,
+    data_interfaces: data.params?.dataInterfaces,
+    video_interfaces: data.params?.videoInterfaces,
+    audio_interfaces: data.params?.audioInterfaces,
+    keyboard: data.params?.keyboard,
+    face_id: data.params?.faceId,
+    weight: data.params?.weight,
+    thickness: data.params?.thickness,
+    software: data.params?.software,
+  }
+
+  return put<ProductCreateResponse>(
+    `${PRODUCT_BASE}/${data.id}`,
+    requestBody as unknown as Record<string, unknown>,
+  )
 }
 
 /**
  * 删除商品
+ * DELETE /api/admin/products/{id}
+ * 删除指定ID的商品
  */
-export async function deleteProduct(_id: number): Promise<void> {
-  await delay(300)
-  // 实际项目中会删除数据库记录，使用 _id 参数
-  void _id
+export async function deleteProduct(id: number): Promise<void> {
+  return del<void>(`${PRODUCT_BASE}/${id}`)
 }
 
 /**
- * 批量更新商品状态
+ * 批量更新商品状态（上下架）
+ * PUT /api/admin/products/status
+ * 批量更新商品的上架/下架状态
  */
-export async function batchUpdateProductStatus(_ids: number[], _status: 0 | 1): Promise<void> {
-  await delay(400)
-  // 实际项目中会批量更新状态，使用 _ids 和 _status 参数
-  void _ids
-  void _status
-}
-
-/**
- * 模拟图片上传
- */
-export async function uploadImage(_file: File): Promise<{ url: string }> {
-  await delay(500)
-  // 模拟返回图片URL，实际项目中会使用 _file 参数上传
-  void _file
-  const randomId = Math.floor(Math.random() * 1000)
-  return {
-    url: `https://picsum.photos/400/400?random=${randomId}`,
+export async function batchUpdateProductStatus(ids: number[], status: 0 | 1): Promise<void> {
+  const requestBody: BatchUpdateStatusRequest = {
+    ids,
+    status,
   }
+
+  return put<void>(
+    `${PRODUCT_BASE}/status`,
+    requestBody as unknown as Record<string, unknown>,
+  )
 }

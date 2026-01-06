@@ -20,20 +20,30 @@
 
 // 导入现有的模型
 import type { BaseResponse, Order, OrderItem } from './model/orderModel';
-
+import { get, patch } from '@/utils/request'
 // 管理员订单管理API实现
+
+// 订单状态枚举
+export enum OrderStatus {
+  PENDING_PAYMENT = 0,    // 待付款
+  PENDING_SHIPMENT = 1,   // 待发货
+  PENDING_RECEIPT = 2,    // 待收货
+  COMPLETED = 3,          // 已完成
+  CANCELLED = 4,          // 已取消
+  REFUNDING = 5,          // 退款中
+  REFUNDED = 6,           // 退款成功
+  REFUND_FAILED = 7       // 退款失败
+}
 
 // 管理员订单列表项类型定义
 export interface AdminOrderListItem {
   orderSn: string;           // 订单号
   totalAmount: number;       // 总金额
   payAmount: number;         // 实付金额
-  status: number;            // 订单状态
-  statusText: string;        // 订单状态文本
+  status: string;            // 订单状态（字符串格式）
   createdAt: string;         // 创建时间
   itemCount: number;         // 产品种类数量
   userId: number;            // 用户ID
-  username: string;          // 用户名
   receiverName: string;      // 收货人姓名
   receiverPhone: string;     // 收货人手机号
 }
@@ -46,14 +56,13 @@ export interface AdminOrderListData {
   orders: AdminOrderListItem[]; // 订单列表
 }
 
-export interface AdminOrderListResponse extends BaseResponse<AdminOrderListData> {}
+export type AdminOrderListResponse = BaseResponse<AdminOrderListData>
 
 // 管理员订单操作类型枚举
 export enum AdminOrderAction {
-  SHIP = 'ship',              // 发货
-  COMPLETE = 'complete',      // 完成订单
-  REFUND = 'refund',          // 退款
-  REJECT_REFUND = 'reject_refund' // 拒绝退款
+  SHIP = 1,              // 发货 - 订单状态从待发货到已发货
+  REFUND = 2,            // 退款 - 订单状态从申请退款到已退款
+  REJECT_REFUND = 3      // 拒绝退款 - 订单状态从待退款拒绝退款
 }
 
 // 发货信息类型定义
@@ -75,9 +84,21 @@ export interface GetAdminOrderListParams {
   pageSize?: number;          // 每页数量，默认为20
   orderSn?: string;           // 订单号搜索
   userId?: number;            // 用户ID筛选
-  status?: number;            // 状态筛选
+  status?: OrderStatus;       // 状态筛选 (0待付款，1待发货，2待收货，3已完成，4已取消，5退款中，6退款成功，7退款失败)
   phone?: string;             // 收货人手机号搜索
 }
+
+
+
+// 订单详情响应数据类型
+export interface OrderDetailData {
+  order: Order;           // 订单详情
+  items: OrderItem[];     // 订单中的商品列表
+}
+
+
+
+
 
 /**
  * 管理员获取订单列表API
@@ -87,46 +108,12 @@ export interface GetAdminOrderListParams {
  * @returns 订单列表
  */
 export async function getAdminOrderList(params?: GetAdminOrderListParams): Promise<AdminOrderListResponse> {
-  // 构建查询参数
-  const queryParams = new URLSearchParams();
-  
-  if (params?.page !== undefined) queryParams.append('page', params.page.toString());
-  if (params?.pageSize !== undefined) queryParams.append('pageSize', params.pageSize.toString());
-  if (params?.orderSn) queryParams.append('orderSn', params.orderSn);
-  if (params?.userId !== undefined) queryParams.append('userId', params.userId.toString());
-  if (params?.status !== undefined) queryParams.append('status', params.status.toString());
-  if (params?.phone) queryParams.append('phone', params.phone);
-
-  const queryString = queryParams.toString();
-  const url = `/api/admin/orders${queryString ? '?' + queryString : ''}`;
-
-   const token = localStorage.getItem('token')
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-       'Authorization': `Bearer ${token}`
-    }
-  });
-
-  if (!response.ok) {
-    // 根据不同的HTTP状态码抛出相应的错误
-    const errorResponse = await response.text();
-    let errorMessage = `HTTP error! status: ${response.status}`;
-    
-    try {
-      const errorObj = JSON.parse(errorResponse);
-      errorMessage = errorObj.message || errorMessage;
-    } catch (e) {
-      // 如果无法解析错误响应，则使用默认错误消息
-    }
-    
-    throw new Error(errorMessage);
-  }
-
-  const result: AdminOrderListResponse = await response.json();
-  return result;
+  const data = await get<AdminOrderListData>('/api/admin/orders', params as unknown as Record<string, unknown>);
+  return {
+    status: 200,
+    message: 'success',
+    data,
+  };
 }
 
 /**
@@ -138,123 +125,28 @@ export async function getAdminOrderList(params?: GetAdminOrderListParams): Promi
  * @returns 更新结果
  */
 export async function updateAdminOrderStatus(orderSn: string, params: UpdateAdminOrderStatusRequest): Promise<BaseResponse<null>> {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`/api/admin/orders/${orderSn}/status`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-       'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({
-      action: params.action,
-      shippingInfo: params.shippingInfo,
-      reason: params.reason
-    })
-  });
-
-  if (!response.ok) {
-    // 根据不同的HTTP状态码抛出相应的错误
-    const errorResponse = await response.text();
-    let errorMessage = `HTTP error! status: ${response.status}`;
-    
-    try {
-      const errorObj = JSON.parse(errorResponse);
-      errorMessage = errorObj.message || errorMessage;
-    } catch (e) {
-      // 如果无法解析错误响应，则使用默认错误消息
-    }
-    
-    throw new Error(errorMessage);
-  }
-
-  const result: BaseResponse<null> = await response.json();
-  return result;
+  await patch<null>(`/api/admin/orders/${orderSn}/status`, {
+    action: params.action,
+    shippingInfo: params.shippingInfo,
+    reason: params.reason,
+  } as unknown as Record<string, unknown>);
+  return {
+    status: 200,
+    message: 'success',
+    data: null,
+  };
 }
 
-// 使用示例
-/*
-// 获取管理员订单列表示例
-const getAdminOrderListExample = async () => {
-  try {
-    const params: GetAdminOrderListParams = {
-      page: 1,
-      pageSize: 20,
-      status: 1,
-      phone: '13800138000'
-    };
-    
-    const result = await getAdminOrderList(params);
-    console.log('获取管理员订单列表成功:', result);
-    console.log('总记录数:', result.data.total);
-    console.log('当前页码:', result.data.page);
-    console.log('每页数量:', result.data.pageSize);
-    console.log('订单列表:', result.data.orders);
-  } catch (error) {
-    console.error('获取管理员订单列表失败:', error);
-  }
-};
-
-// 管理员更新订单状态示例
-const updateAdminOrderStatusExample = async () => {
-  try {
-    const orderSn = '100014'; // 示例订单号
-    const params: UpdateAdminOrderStatusRequest = {
-      action: AdminOrderAction.SHIP,
-      shippingInfo: {
-        shippingMethod: '顺丰快递',
-        trackingNumber: 'SF1234567890'
-      },
-      reason: '已安排发货'
-    };
-    
-    const result = await updateAdminOrderStatus(orderSn, params);
-    console.log('更新订单状态成功:', result);
-  } catch (error) {
-    console.error('更新订单状态失败:', error);
-  }
-};
-
-// 管理员完成订单示例
-const completeOrderExample = async () => {
-  try {
-    const orderSn = '100014'; // 示例订单号
-    const params: UpdateAdminOrderStatusRequest = {
-      action: AdminOrderAction.COMPLETE,
-      reason: '订单已完成'
-    };
-    
-    const result = await updateAdminOrderStatus(orderSn, params);
-    console.log('完成订单成功:', result);
-  } catch (error) {
-    console.error('完成订单失败:', error);
-  }
-};
-
-// 管理员处理退款示例
-const refundOrderExample = async () => {
-  try {
-    const orderSn = '100014'; // 示例订单号
-    const params: UpdateAdminOrderStatusRequest = {
-      action: AdminOrderAction.REFUND,
-      reason: '商品质量问题，同意退款'
-    };
-    
-    const result = await updateAdminOrderStatus(orderSn, params);
-    console.log('退款处理成功:', result);
-  } catch (error) {
-    console.error('退款处理失败:', error);
-  }
-};
-*/
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+ * 获取订单详情API
+ * @param orderSn - 订单号
+ * @returns 订单详情
+ */
+export async function getOrderDetail(orderSn: number | string): Promise<BaseResponse<OrderDetailData>> {
+  const data = await get<OrderDetailData>(`/api/admin/orders/${orderSn}`);
+  return {
+    status: 200,
+    message: 'success',
+    data,
+  };
+}

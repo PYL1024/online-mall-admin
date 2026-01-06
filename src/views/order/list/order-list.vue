@@ -4,12 +4,12 @@
  * 负责人：成员 C
  * 功能：多 Tab 切换、状态渲染、发货处理
  */
-import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, reactive, ref, onBeforeUnmount } from 'vue'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshRight } from '@element-plus/icons-vue'
+import { getAdminOrderList, OrderStatus } from '@/api/order'
 import type { AdminOrderListItem, GetAdminOrderListParams } from '@/api/order'
-import { getAdminOrderList } from '@/api/order'
 
 type OrderListFilters = GetAdminOrderListParams & {
   page: number
@@ -32,40 +32,59 @@ const filters = reactive<OrderListFilters>({
 
 const statusOptions = [
   { label: '全部状态', value: undefined },
-  { label: '待付款', value: 0 },
-  { label: '待发货', value: 1 },
-  { label: '待收货', value: 2 },
-  { label: '已完成', value: 3 },
-  { label: '退款中', value: 4 },
-  { label: '退款成功', value: 5 },
-  { label: '退款失败', value: 6 },
-  { label: '已取消', value: 9 },
+  { label: '待付款', value: OrderStatus.PENDING_PAYMENT },
+  { label: '待发货', value: OrderStatus.PENDING_SHIPMENT },
+  { label: '待收货', value: OrderStatus.PENDING_RECEIPT },
+  { label: '已完成', value: OrderStatus.COMPLETED },
+  { label: '已取消', value: OrderStatus.CANCELLED },
+  { label: '退款中', value: OrderStatus.REFUNDING },
+  { label: '退款成功', value: OrderStatus.REFUNDED },
+  { label: '退款失败', value: OrderStatus.REFUND_FAILED },
 ]
 
-const statusTagTypeMap: Record<number, 'info' | 'success' | 'warning' | 'danger'> = {
-  0: 'warning',
-  1: 'warning',
-  2: 'info',
-  3: 'success',
-  4: 'danger',
-  5: 'success',
-  6: 'danger',
-  9: 'info',
+type StatusTag = 'info' | 'success' | 'warning' | 'danger'
+
+const statusMeta: Record<OrderStatus, { text: string; tag: StatusTag }> = {
+  [OrderStatus.PENDING_PAYMENT]: { text: '待付款', tag: 'warning' },
+  [OrderStatus.PENDING_SHIPMENT]: { text: '待发货', tag: 'warning' },
+  [OrderStatus.PENDING_RECEIPT]: { text: '待收货', tag: 'info' },
+  [OrderStatus.COMPLETED]: { text: '已完成', tag: 'success' },
+  [OrderStatus.CANCELLED]: { text: '已取消', tag: 'info' },
+  [OrderStatus.REFUNDING]: { text: '退款中', tag: 'warning' },
+  [OrderStatus.REFUNDED]: { text: '退款成功', tag: 'success' },
+  [OrderStatus.REFUND_FAILED]: { text: '退款失败', tag: 'danger' },
 }
 
-const statusFallbackText: Record<number, string> = {
-  0: '待付款',
-  1: '待发货',
-  2: '待收货',
-  3: '已完成',
-  4: '退款中',
-  5: '退款成功',
-  6: '退款失败',
-  9: '已取消',
+const statusTextToCode: Record<string, OrderStatus> = {
+  待付款: OrderStatus.PENDING_PAYMENT,
+  待发货: OrderStatus.PENDING_SHIPMENT,
+  待收货: OrderStatus.PENDING_RECEIPT,
+  已完成: OrderStatus.COMPLETED,
+  已取消: OrderStatus.CANCELLED,
+  退款中: OrderStatus.REFUNDING,
+  退款成功: OrderStatus.REFUNDED,
+  退款失败: OrderStatus.REFUND_FAILED,
+  PENDING_PAYMENT: OrderStatus.PENDING_PAYMENT,
+  PENDING_SHIPMENT: OrderStatus.PENDING_SHIPMENT,
+  PENDING_RECEIPT: OrderStatus.PENDING_RECEIPT,
+  COMPLETED: OrderStatus.COMPLETED,
+  CANCELLED: OrderStatus.CANCELLED,
+  REFUNDING: OrderStatus.REFUNDING,
+  REFUNDED: OrderStatus.REFUNDED,
+  REFUND_FAILED: OrderStatus.REFUND_FAILED,
 }
 
 onMounted(() => {
+  restoreFilters()
   loadOrders()
+})
+
+onBeforeRouteLeave(() => {
+  persistFilters()
+})
+
+onBeforeUnmount(() => {
+  persistFilters()
 })
 
 async function loadOrders() {
@@ -85,11 +104,39 @@ async function loadOrders() {
     total.value = res.data?.total || 0
     filters.page = res.data?.page || filters.page
     filters.pageSize = res.data?.pageSize || filters.pageSize
+    persistFilters()
   } catch (error) {
     console.error('加载订单列表失败:', error)
     ElMessage.error('加载订单列表失败')
   } finally {
     loading.value = false
+  }
+}
+
+function persistFilters() {
+  try {
+    sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ ...filters }))
+  } catch (error) {
+    console.warn('保存订单筛选条件失败', error)
+  }
+}
+
+function restoreFilters() {
+  const raw = sessionStorage.getItem(FILTER_STORAGE_KEY)
+  if (!raw) return
+  try {
+    const saved = JSON.parse(raw) as Partial<OrderListFilters>
+    filters.page = saved.page ?? filters.page
+    filters.pageSize = saved.pageSize ?? filters.pageSize
+    filters.orderSn = saved.orderSn ?? filters.orderSn
+    filters.userId = saved.userId ?? filters.userId
+    filters.phone = saved.phone ?? filters.phone
+    if (saved.status !== undefined) {
+      const statusNumber = typeof saved.status === 'string' ? Number(saved.status) : saved.status
+      filters.status = (Number.isNaN(statusNumber) ? undefined : (statusNumber as OrderStatus)) ?? filters.status
+    }
+  } catch (error) {
+    console.warn('恢复订单筛选条件失败', error)
   }
 }
 
@@ -104,7 +151,7 @@ function handleReset() {
   filters.status = undefined
   filters.phone = ''
   filters.page = 1
-  filters.pageSize = 10
+  filters.pageSize = 20
   loadOrders()
 }
 
@@ -133,18 +180,33 @@ function formatDateTime(value?: string) {
 }
 
 function getStatusText(row: AdminOrderListItem) {
-  if (row.statusText) return row.statusText
-  if (row.status !== undefined && statusFallbackText[row.status]) {
-    return statusFallbackText[row.status]
-  }
-  return '未知状态'
+  const statusText = (row as AdminOrderListItem & { statusText?: string }).statusText
+  if (statusText) return statusText
+  return resolveStatusMeta(row.status).text
 }
 
 function getStatusTagType(row: AdminOrderListItem) {
-  if (row.status !== undefined && statusTagTypeMap[row.status]) {
-    return statusTagTypeMap[row.status]
+  return resolveStatusMeta(row.status).tag
+}
+
+function resolveStatusMeta(status?: string | number) {
+  if (status === undefined || status === null) return { text: '未知状态', tag: 'info' as StatusTag }
+
+  const numericStatus = typeof status === 'string' ? Number(status) : status
+  if (!Number.isNaN(numericStatus) && statusMeta[numericStatus as OrderStatus]) {
+    return statusMeta[numericStatus as OrderStatus]
   }
-  return 'info'
+
+  if (typeof status === 'string') {
+    const trimmed = status.trim()
+    const mappedCode = statusTextToCode[trimmed]
+    if (mappedCode !== undefined) {
+      return statusMeta[mappedCode]
+    }
+    return { text: trimmed, tag: 'info' as StatusTag }
+  }
+
+  return { text: '未知状态', tag: 'info' as StatusTag }
 }
 
 function handleViewDetail(orderSn: string) {
@@ -158,7 +220,7 @@ function handleViewDetail(orderSn: string) {
       <div class="card-header">
         <div>
           <h2 class="title">订单列表</h2>
-          <p class="sub-title">支持筛选、分页查看全部订单</p>
+          <p class="sub-title">支持筛选、分页查看全部订单(如需单独查看售后，请查看售后订单列表)</p>
         </div>
         <div class="header-actions">
           <el-button :icon="RefreshRight" @click="loadOrders">刷新</el-button>
@@ -191,7 +253,7 @@ function handleViewDetail(orderSn: string) {
           />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="选择状态" clearable style="width: 160px">
+          <el-select v-model="filters.status" placeholder="选择状态" clearable style="width: 140px">
             <el-option
               v-for="option in statusOptions"
               :key="String(option.value ?? 'all')"
@@ -200,10 +262,12 @@ function handleViewDetail(orderSn: string) {
             />
           </el-select>
         </el-form-item>
-        <el-form-item>
+
+        <el-form-item class="filter-actions">
           <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
         </el-form-item>
+
       </el-form>
 
       <el-table
@@ -216,14 +280,13 @@ function handleViewDetail(orderSn: string) {
       >
         <el-table-column prop="orderSn" label="订单号" min-width="160" show-overflow-tooltip />
 
-        <el-table-column label="用户" min-width="180">
+        <el-table-column label="用户ID" min-width="180" align="center">
           <template #default="{ row }">
-            <div class="cell-main">{{ row.username || '未知用户' }}</div>
-            <div class="cell-sub">ID: {{ row.userId ?? '-' }}</div>
+            <div class="cell-main">{{ row.userId ?? '-' }}</div>
           </template>
         </el-table-column>
 
-        <el-table-column label="收货人" min-width="180">
+        <el-table-column label="收货人" min-width="160">
           <template #default="{ row }">
             <div class="cell-main">{{ row.receiverName || '-' }}</div>
             <div class="cell-sub">{{ row.receiverPhone || '-' }}</div>
@@ -237,7 +300,11 @@ function handleViewDetail(orderSn: string) {
           </template>
         </el-table-column>
 
-        <el-table-column prop="itemCount" label="商品数" width="100" align="center" />
+        <el-table-column label="商品数" min-width="100" align="center">
+          <template #default="{ row }">
+            <div class="cell-main">{{row.itemCount ?? '-' }}</div>
+          </template>
+        </el-table-column>
 
         <el-table-column label="状态" width="120" align="center">
           <template #default="{ row }">
@@ -312,10 +379,25 @@ function handleViewDetail(orderSn: string) {
 }
 
 .filter-form {
-  padding: 12px;
+  padding: 10px 12px;
   background: #f6f7fb;
   border-radius: 8px;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-form :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.filter-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .order-table {

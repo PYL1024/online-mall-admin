@@ -2,6 +2,7 @@
 /**
  * 多图上传组件
  * 支持批量上传、拖拽排序、图片预览和删除
+ * 注意：图片不单独上传，使用本地Blob URL预览，保存商品时一起提交
  */
 import { ref, computed, watch } from 'vue'
 import {
@@ -20,7 +21,6 @@ import type { UploadFile, UploadProps } from 'element-plus'
 interface Props {
   modelValue: string[] // 图片URL数组
   maxCount?: number // 最大上传数量
-  fileSize?: number // 单个文件大小限制（MB）
   accept?: string // 接受的文件类型
   disabled?: boolean
 }
@@ -28,7 +28,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   modelValue: () => [],
   maxCount: 5,
-  fileSize: 5,
   accept: 'image/jpeg,image/png,image/gif,image/webp',
   disabled: false,
 })
@@ -61,7 +60,7 @@ const canUpload = computed(() => {
 
 // 上传提示文字
 const uploadTip = computed(() => {
-  return `最多上传 ${props.maxCount} 张图片，单张不超过 ${props.fileSize}MB`
+  return `最多上传 ${props.maxCount} 张图片`
 })
 
 // 预览列表（用于大图预览）
@@ -105,9 +104,10 @@ const beforeUpload: UploadProps['beforeUpload'] = (rawFile) => {
     return false
   }
 
-  // 检查文件大小
-  if (rawFile.size / 1024 / 1024 > props.fileSize) {
-    ElMessage.error(`图片大小不能超过 ${props.fileSize}MB`)
+  // 检查文件大小（限制 5MB，避免 Base64 过大）
+  const maxSize = 5 * 1024 * 1024 // 5MB
+  if (rawFile.size > maxSize) {
+    ElMessage.error('图片大小不能超过 5MB')
     return false
   }
 
@@ -121,21 +121,49 @@ const beforeUpload: UploadProps['beforeUpload'] = (rawFile) => {
 }
 
 /**
- * 文件状态改变（处理上传结果）
- * 注意：因为使用 auto-upload=false，这里手动处理
+ * 将文件转换为 Base64 Data URL
  */
-const handleChange: UploadProps['onChange'] = (uploadFile) => {
-  if (uploadFile.status === 'ready') {
-    // 模拟上传成功，创建本地 URL
-    // 实际项目中应该调用 API 上传到服务器
-    uploadFile.status = 'success'
-    uploadFile.url = URL.createObjectURL(uploadFile.raw!)
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
-    // 模拟异步上传完成
-    setTimeout(() => {
+/**
+ * 文件状态改变（处理上传结果）
+ * 将图片转换为 Base64 Data URL，保存商品时一起提交
+ */
+const handleChange: UploadProps['onChange'] = async (uploadFile) => {
+  if (uploadFile.status === 'ready' && uploadFile.raw) {
+    // 检查数量限制
+    if (fileList.value.length >= props.maxCount) {
+      ElMessage.warning(`最多只能上传 ${props.maxCount} 张图片`)
+      return
+    }
+
+    try {
+      // 将图片转换为 Base64 Data URL
+      const base64Url = await fileToBase64(uploadFile.raw)
+
+      // 添加到文件列表
+      fileList.value.push({
+        uid: uploadFile.uid,
+        name: uploadFile.name,
+        url: base64Url,  // 使用 Base64 URL
+        status: 'success',
+        raw: uploadFile.raw,
+      } as UploadFile)
+
+      // 触发更新
       emitUpdate()
-      ElMessage.success('图片上传成功')
-    }, 300)
+      ElMessage.success('图片添加成功')
+    } catch (error) {
+      console.error('图片转换失败:', error)
+      ElMessage.error('图片处理失败，请重试')
+    }
   }
 }
 

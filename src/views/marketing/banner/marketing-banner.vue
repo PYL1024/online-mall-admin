@@ -9,7 +9,13 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 /* ========================
-   一、轮播图数据（模拟）
+   一、轮播图数据
+   TODO: 等待后端提供轮播图管理API后对接
+   预计接口：
+   GET /api/admin/banners - 获取轮播图列表
+   POST /api/admin/banners - 创建轮播图
+   PUT /api/admin/banners/{id} - 更新轮播图
+   DELETE /api/admin/banners/{id} - 删除轮播图
 ======================== */
 interface BannerItem {
   id: number
@@ -20,37 +26,22 @@ interface BannerItem {
   status: boolean
 }
 
-const bannerList = ref<BannerItem[]>([
-  {
-    id: 1,
-    title: '联想新品上市',
-    imageUrl: 'https://via.placeholder.com/300x120?text=Banner+1',
-    link: 'https://www.lenovo.com',
-    order: 1,
-    status: true
-  },
-  {
-    id: 2,
-    title: '拯救者系列促销',
-    imageUrl: 'https://via.placeholder.com/300x120?text=Banner+2',
-    link: 'https://www.lenovo.com',
-    order: 2,
-    status: true
-  }
-])
+const bannerList = ref<BannerItem[]>([])
 
 /* ========================
-   二、上传成功回调（模拟）
+   二、上传成功回调
 ======================== */
 const handleUploadSuccess = () => {
-  ElMessage.success('图片上传成功（模拟）')
+  // TODO: 对接真实上传API后，刷新轮播图列表
+  ElMessage.info('请等待后端提供轮播图上传API')
 }
 
 /* ========================
    三、状态切换
 ======================== */
 const handleStatusChange = () => {
-  ElMessage.success('状态已更新（模拟）')
+  // TODO: 对接真实API后，调用更新状态接口
+  ElMessage.info('请等待后端提供状态更新API')
 }
 </script>
 

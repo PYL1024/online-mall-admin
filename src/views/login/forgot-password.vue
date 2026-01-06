@@ -53,9 +53,10 @@ async function handleSendCode() {
 
   codeLoading.value = true
   try {
-    // 模拟发送验证码
+    // TODO: 对接真实验证码发送API
+    // await sendVerificationCode({ phone: resetForm.phone })
     await new Promise((resolve) => setTimeout(resolve, 1000))
-    ElMessage.success('验证码已发送（模拟：123456）')
+    ElMessage.success('验证码已发送，请注意查收短信')
     countdown.value = 60
     const timer = setInterval(() => {
       countdown.value--
@@ -65,6 +66,7 @@ async function handleSendCode() {
     }, 1000)
   } catch (error) {
     console.error(error)
+    ElMessage.error('验证码发送失败')
   } finally {
     codeLoading.value = false
   }

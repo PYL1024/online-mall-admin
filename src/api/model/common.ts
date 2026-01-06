@@ -1,8 +1,9 @@
 /**
- * 通用 API 响应类型
+ * 通用 API 响应类型（兼容 status / code）
  */
 export interface ApiResponse<T = unknown> {
-  status: number
+  status?: number
+  code?: number
   message: string
   data: T
 }

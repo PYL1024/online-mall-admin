@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
- * 商品发布/编辑页面
- * 功能：富文本编辑、图片上传、SKU规格生成、商品表单验证
+ * 商品编辑/新增页面
+ * 功能：商品信息编辑、多图上传、SKU规格生成
  */
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  ElCard,
+  ElButton,
   ElForm,
   ElFormItem,
   ElInput,
@@ -14,42 +16,58 @@ import {
   ElOption,
   ElRadioGroup,
   ElRadio,
-  ElButton,
-  ElCard,
   ElMessage,
   ElMessageBox,
   ElDivider,
-  ElSwitch,
-  ElCollapse,
-  ElCollapseItem,
+  ElTabs,
+  ElTabPane,
+  ElAlert,
 } from 'element-plus'
+import { ArrowLeft, Check } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import {
+  getCategoryList,
+  getProductDetail,
+  addProduct,
+  updateProduct,
+} from '@/api/product'
 import type { Category, ProductForm, SkuSpec } from '@/api/model/product'
-import { getCategoryList, getProductDetail, addProduct, updateProduct } from '@/api/product'
-
-// 引入自定义组件
-import Editor from '@/components/Editor/Editor.vue'
 import MultiImageUpload from '@/components/MultiImageUpload/MultiImageUpload.vue'
 import SkuGenerator from '@/components/SkuGenerator/SkuGenerator.vue'
 
-// ==================== 路由 ====================
+// ==================== Router ====================
 
 const route = useRoute()
 const router = useRouter()
 
-// 判断是编辑还是新增
-const productId = computed(() => {
-  const id = route.params.id
-  return id ? Number(id) : null
-})
-const isEdit = computed(() => !!productId.value)
-const pageTitle = computed(() => (isEdit.value ? '编辑商品' : '发布商品'))
-
 // ==================== 状态定义 ====================
+
+// 页面模式
+const mode = computed(() => {
+  if (route.query.mode === 'view') return 'view'
+  return route.params.id ? 'edit' : 'add'
+})
+
+// 页面标题
+const pageTitle = computed(() => {
+  switch (mode.value) {
+    case 'add':
+      return '新增商品'
+    case 'edit':
+      return '编辑商品'
+    case 'view':
+      return '商品详情'
+    default:
+      return '商品编辑'
+  }
+})
+
+// 是否只读
+const isReadonly = computed(() => mode.value === 'view')
 
 // 加载状态
 const loading = ref(false)
-const submitLoading = ref(false)
+const submitting = ref(false)
 
 // 分类列表
 const categoryList = ref<Category[]>([])
@@ -57,67 +75,160 @@ const categoryList = ref<Category[]>([])
 // 表单引用
 const formRef = ref<FormInstance>()
 
+// 当前 Tab
+const activeTab = ref('basic')
+
 // 表单数据
-const productForm = reactive<ProductForm>({
+const formData = reactive<ProductForm>({
   name: '',
   categoryId: undefined,
   mainImage: '',
   images: [],
+  detailImages: [],
   price: undefined,
   originalPrice: undefined,
   stock: undefined,
   status: 1,
   description: '',
   skuSpec: {
-    colors: [],
-    memories: [],
+    cpus: [],
+    rams: [],
+    storages: [],
+    gpus: [],
     combinations: [],
   },
+  params: {},
 })
 
-// 是否启用 SKU 规格
-const enableSku = ref(false)
+// 商品参数配置项
+const paramGroups = [
+  {
+    title: '核心配置',
+    fields: [
+      { key: 'model', label: '产品型号' },
+      { key: 'os', label: '操作系统' },
+      { key: 'positioning', label: '产品定位' },
+    ],
+  },
+  {
+    title: '处理器 (CPU)',
+    fields: [
+      { key: 'cpuModel', label: 'CPU型号' },
+      { key: 'cpuSeries', label: 'CPU系列' },
+      { key: 'maxTurboFreq', label: '最大睿频' },
+      { key: 'cpuChip', label: 'CPU芯片' },
+    ],
+  },
+  {
+    title: '屏幕显示',
+    fields: [
+      { key: 'screenSize', label: '屏幕尺寸' },
+      { key: 'screenRatio', label: '屏幕比例' },
+      { key: 'resolution', label: '屏幕分辨率' },
+      { key: 'colorGamut', label: '屏幕色域' },
+      { key: 'refreshRate', label: '屏幕刷新率' },
+    ],
+  },
+  {
+    title: '内存与存储',
+    fields: [
+      { key: 'ramCapacity', label: '内存容量' },
+      { key: 'ramType', label: '内存类型' },
+      { key: 'ssdType', label: '硬盘类型' },
+    ],
+  },
+  {
+    title: '图形显卡',
+    fields: [
+      { key: 'gpuType', label: '显卡类型' },
+      { key: 'vramType', label: '显存类型' },
+    ],
+  },
+  {
+    title: '多媒体与功能',
+    fields: [
+      { key: 'camera', label: '摄像头' },
+      { key: 'wifi', label: 'WiFi功能' },
+      { key: 'bluetooth', label: '蓝牙功能' },
+      { key: 'faceId', label: '人脸识别' },
+    ],
+  },
+  {
+    title: '接口与外设',
+    fields: [
+      { key: 'dataInterfaces', label: '数据接口' },
+      { key: 'videoInterfaces', label: '视频接口' },
+      { key: 'audioInterfaces', label: '音频接口' },
+      { key: 'keyboard', label: '键盘类型' },
+    ],
+  },
+  {
+    title: '外观与其它',
+    fields: [
+      { key: 'weight', label: '机身重量' },
+      { key: 'thickness', label: '机身厚度' },
+      { key: 'software', label: '预装软件' },
+    ],
+  }
+]
 
-// 折叠面板
-const activeCollapse = ref(['basic', 'images', 'detail'])
-
-// ==================== 表单验证规则 ====================
-
+// 表单校验规则
 const formRules: FormRules = {
   name: [
     { required: true, message: '请输入商品名称', trigger: 'blur' },
-    { min: 2, max: 100, message: '商品名称长度为 2-100 个字符', trigger: 'blur' },
+    { min: 2, max: 100, message: '名称长度在 2 到 100 个字符', trigger: 'blur' },
   ],
-  categoryId: [{ required: true, message: '请选择商品分类', trigger: 'change' }],
-  mainImage: [{ required: true, message: '请上传商品主图', trigger: 'change' }],
+  categoryId: [
+    { required: true, message: '请选择商品分类', trigger: 'change' },
+  ],
+  mainImage: [
+    { required: true, message: '请上传商品主图', trigger: 'change' },
+  ],
   price: [
     { required: true, message: '请输入商品价格', trigger: 'blur' },
-    {
-      type: 'number',
-      min: 0.01,
-      message: '价格必须大于 0',
-      trigger: 'blur',
-    },
   ],
   stock: [
-    { required: true, message: '请输入库存数量', trigger: 'blur' },
-    {
-      type: 'number',
-      min: 0,
-      message: '库存不能为负数',
-      trigger: 'blur',
-    },
+    { required: true, message: '请输入商品库存', trigger: 'blur' },
   ],
-  status: [{ required: true, message: '请选择商品状态', trigger: 'change' }],
-  description: [{ required: true, message: '请输入商品详情', trigger: 'blur' }],
 }
+
+// ==================== 计算属性 ====================
+
+// 是否启用 SKU
+const enableSku = computed(() => {
+  return (
+    formData.skuSpec &&
+    formData.skuSpec.combinations &&
+    formData.skuSpec.combinations.length > 0
+  )
+})
+
+// SKU 总库存
+const skuTotalStock = computed(() => {
+  if (!enableSku.value || !formData.skuSpec) return 0
+  return formData.skuSpec.combinations.reduce((sum, item) => sum + item.stock, 0)
+})
+
+// SKU 价格范围
+const skuPriceRange = computed(() => {
+  if (!enableSku.value || !formData.skuSpec || formData.skuSpec.combinations.length === 0) {
+    return null
+  }
+  const prices = formData.skuSpec.combinations.map((c) => c.price).filter((p) => p > 0)
+  if (prices.length === 0) return null
+  const min = Math.min(...prices)
+  const max = Math.max(...prices)
+  return { min, max }
+})
 
 // ==================== 生命周期 ====================
 
 onMounted(async () => {
   await loadCategories()
-  if (isEdit.value && productId.value) {
-    await loadProductDetail(productId.value)
+
+  // 编辑或查看模式时加载商品详情
+  if (route.params.id) {
+    await loadProductDetail(Number(route.params.id))
   }
 })
 
@@ -131,36 +242,50 @@ async function loadCategories() {
     categoryList.value = await getCategoryList()
   } catch (error) {
     console.error('加载分类失败:', error)
-    ElMessage.error('加载分类数据失败')
   }
 }
 
 /**
- * 加载商品详情（编辑模式）
+ * 加载商品详情
  */
 async function loadProductDetail(id: number) {
   loading.value = true
   try {
-    const detail = await getProductDetail(id)
-    if (detail) {
-      productForm.name = detail.name
-      productForm.categoryId = detail.categoryId
-      productForm.mainImage = detail.mainImage
-      productForm.images = detail.images || []
-      productForm.price = detail.price
-      productForm.originalPrice = detail.originalPrice
-      productForm.stock = detail.stock
-      productForm.status = detail.status
-      productForm.description = detail.description
+    const product = await getProductDetail(id)
+    if (product) {
+      // 填充表单数据
+      formData.id = product.id
+      formData.name = product.name
+      formData.categoryId = product.categoryId
 
-      // SKU 数据
-      if (detail.skuSpec && detail.skuSpec.combinations.length > 0) {
-        enableSku.value = true
-        productForm.skuSpec = detail.skuSpec
+      // Fallback: 如果没有分类ID，尝试通过 tag 匹配
+      const tag = route.query.tag as string || product.tag
+      if ((!formData.categoryId || formData.categoryId === 0) && tag) {
+        const matchedCat = categoryList.value.find(c => c.name === tag)
+        if (matchedCat) {
+          formData.categoryId = matchedCat.id
+        }
       }
+
+      formData.mainImage = product.mainImage
+      formData.images = product.images || []
+      formData.price = product.price
+      formData.originalPrice = product.originalPrice
+      formData.stock = product.stock
+      formData.status = product.status
+      formData.description = product.description
+      formData.skuSpec = product.skuSpec || {
+        cpus: [],
+        rams: [],
+        storages: [],
+        gpus: [],
+        combinations: [],
+      }
+      // @ts-ignore
+      formData.params = product.params
     } else {
       ElMessage.error('商品不存在')
-      router.push('/product/list')
+      router.back()
     }
   } catch (error) {
     console.error('加载商品详情失败:', error)
@@ -173,192 +298,196 @@ async function loadProductDetail(id: number) {
 // ==================== 图片处理 ====================
 
 /**
- * 主图变化
+ * 主图上传成功
  */
 function handleMainImageChange(urls: string[]) {
-  productForm.mainImage = urls[0] || ''
+  formData.mainImage = urls[0] || ''
 }
 
 /**
  * 商品图片变化
  */
 function handleImagesChange(urls: string[]) {
-  productForm.images = urls
+  formData.images = urls
 }
-
-// 主图的数组形式（用于组件）
-const mainImageList = computed({
-  get: () => (productForm.mainImage ? [productForm.mainImage] : []),
-  set: (val) => {
-    productForm.mainImage = val[0] || ''
-  },
-})
 
 // ==================== SKU 处理 ====================
 
 /**
  * SKU 数据变化
  */
-function handleSkuChange(skuSpec: SkuSpec) {
-  productForm.skuSpec = skuSpec
+function handleSkuChange(sku: SkuSpec) {
+  formData.skuSpec = sku
 
-  // 如果有 SKU 组合，自动计算总库存和最低价
-  if (skuSpec.combinations.length > 0) {
-    const totalStock = skuSpec.combinations.reduce((sum, item) => sum + item.stock, 0)
-    const minPrice = Math.min(...skuSpec.combinations.map((item) => item.price).filter((p) => p > 0))
+  // 如果启用了 SKU，可以根据 SKU 更新主价格和库存
+  if (sku.combinations.length > 0) {
+    // 使用最低价格作为显示价格
+    const prices = sku.combinations.map((c) => c.price).filter((p) => p > 0)
+    if (prices.length > 0) {
+      formData.price = Math.min(...prices)
+    }
 
-    // 自动填充（如果用户未手动修改）
-    if (productForm.stock === undefined || productForm.stock === 0) {
-      productForm.stock = totalStock
-    }
-    if (productForm.price === undefined || productForm.price === 0) {
-      productForm.price = minPrice > 0 ? minPrice : undefined
-    }
+    // 库存为所有 SKU 库存之和
+    formData.stock = sku.combinations.reduce((sum, c) => sum + c.stock, 0)
   }
 }
 
+// ==================== 表单操作 ====================
+
 /**
- * 切换 SKU 启用状态
+ * 返回列表
  */
-function handleSkuEnableChange(enabled: string | number | boolean) {
-  if (!enabled) {
-    // 关闭 SKU 时清空数据
-    productForm.skuSpec = {
-      colors: [],
-      memories: [],
-      combinations: [],
-    }
-  }
+function handleBack() {
+  router.push('/product/list')
 }
 
-// ==================== 表单提交 ====================
-
 /**
- * 提交表单
+ * 保存商品
  */
-async function handleSubmit() {
+async function handleSave() {
   if (!formRef.value) return
 
+  // 收集缺少的必填项
+  const missingFields: string[] = []
+
+  if (!formData.name?.trim()) {
+    missingFields.push('商品名称')
+  }
+  if (!formData.categoryId) {
+    missingFields.push('商品分类')
+  }
+  if (!formData.mainImage) {
+    missingFields.push('商品主图')
+  }
+  if (formData.price === undefined || formData.price === null) {
+    missingFields.push('销售价格')
+  }
+  if (formData.stock === undefined || formData.stock === null) {
+    missingFields.push('商品库存')
+  }
+
+  if (missingFields.length > 0) {
+    ElMessage.warning(`请填写以下必填信息：${missingFields.join('、')}`)
+    // 根据缺少的字段切换到对应的Tab
+    if (!formData.mainImage) {
+      activeTab.value = 'images'
+    } else {
+      activeTab.value = 'basic'
+    }
+    return
+  }
+
+  // 表单验证（其他规则如长度限制等）
   await formRef.value.validate(async (valid) => {
     if (!valid) {
-      ElMessage.warning('请检查表单填写是否正确')
+      activeTab.value = 'basic'
       return
     }
 
-    // SKU 验证
-    if (enableSku.value) {
-      const skuSpec = productForm.skuSpec
-      if (!skuSpec || skuSpec.combinations.length === 0) {
-        ElMessage.warning('请生成 SKU 规格组合')
-        return
-      }
+    submitting.value = true
 
-      // 检查价格和库存是否填写
-      const invalidSku = skuSpec.combinations.find((item) => item.price <= 0)
-      if (invalidSku) {
-        ElMessage.warning('请为所有 SKU 组合设置有效价格')
-        return
-      }
-    }
-
-    submitLoading.value = true
     try {
-      const submitData: ProductForm = {
-        ...productForm,
-        skuSpec: enableSku.value ? productForm.skuSpec : undefined,
-      }
-
-      if (isEdit.value && productId.value) {
-        submitData.id = productId.value
-        await updateProduct(submitData)
-        ElMessage.success('商品更新成功')
+      if (mode.value === 'add') {
+        await addProduct(formData)
+        ElMessage.success('商品添加成功')
       } else {
-        await addProduct(submitData)
-        ElMessage.success('商品发布成功')
+        await updateProduct(formData)
+        ElMessage.success('商品更新成功')
       }
-
-      // 返回列表页
       router.push('/product/list')
     } catch (error) {
-      console.error('保存商品失败:', error)
-      ElMessage.error('保存商品失败，请重试')
+      console.error('保存失败:', error)
     } finally {
-      submitLoading.value = false
+      submitting.value = false
     }
   })
-}
-
-/**
- * 取消编辑
- */
-function handleCancel() {
-  ElMessageBox.confirm('确定要放弃编辑吗？未保存的内容将丢失。', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '继续编辑',
-    type: 'warning',
-  })
-    .then(() => {
-      router.push('/product/list')
-    })
-    .catch(() => {
-      // 继续编辑
-    })
 }
 
 /**
  * 重置表单
  */
-function handleReset() {
-  formRef.value?.resetFields()
-  productForm.images = []
-  productForm.skuSpec = {
-    colors: [],
-    memories: [],
-    combinations: [],
+async function handleReset() {
+  try {
+    await ElMessageBox.confirm('确定要重置表单吗？未保存的数据将丢失。', '重置确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+
+    if (route.params.id) {
+      // 编辑模式：重新加载数据
+      await loadProductDetail(Number(route.params.id))
+    } else {
+      // 新增模式：清空表单
+      formRef.value?.resetFields()
+      formData.mainImage = ''
+      formData.images = []
+      formData.detailImages = []
+      formData.description = ''
+      formData.skuSpec = {
+        cpus: [],
+        rams: [],
+        storages: [],
+        gpus: [],
+        combinations: [],
+      }
+    }
+
+    ElMessage.success('表单已重置')
+  } catch {
+    // 用户取消
   }
-  enableSku.value = false
 }
 </script>
 
 <template>
-  <div class="product-edit-container" v-loading="loading">
+  <div class="product-edit" v-loading="loading">
     <!-- 页面头部 -->
     <div class="page-header">
-      <h2 class="page-title">{{ pageTitle }}</h2>
-      <div class="header-actions">
-        <ElButton @click="handleCancel">取消</ElButton>
-        <ElButton type="primary" :loading="submitLoading" @click="handleSubmit">
-          {{ isEdit ? '保存修改' : '发布商品' }}
+      <div class="header-left">
+        <ElButton :icon="ArrowLeft" @click="handleBack">返回</ElButton>
+        <h2 class="page-title">{{ pageTitle }}</h2>
+      </div>
+      <div v-if="!isReadonly" class="header-right">
+        <ElButton @click="handleReset">重置</ElButton>
+        <ElButton type="primary" :icon="Check" @click="handleSave" :loading="submitting">
+          保存商品
         </ElButton>
       </div>
     </div>
 
-    <!-- 商品表单 -->
+    <!-- 表单内容 -->
     <ElForm
       ref="formRef"
-      :model="productForm"
+      :model="formData"
       :rules="formRules"
+      :disabled="isReadonly"
       label-width="120px"
-      class="product-form"
+      label-position="right"
     >
-      <ElCollapse v-model="activeCollapse">
-        <!-- 基本信息 -->
-        <ElCollapseItem title="基本信息" name="basic">
+      <ElTabs v-model="activeTab" type="border-card">
+        <!-- 基础信息 -->
+        <ElTabPane label="基础信息" name="basic">
           <ElCard shadow="never" class="form-card">
+            <template #header>
+              <span class="card-title">基本信息</span>
+            </template>
+
             <ElFormItem label="商品名称" prop="name">
               <ElInput
-                v-model="productForm.name"
+                v-model="formData.name"
                 placeholder="请输入商品名称"
                 maxlength="100"
                 show-word-limit
+                style="max-width: 500px"
               />
             </ElFormItem>
 
             <ElFormItem label="商品分类" prop="categoryId">
               <ElSelect
-                v-model="productForm.categoryId"
+                v-model="formData.categoryId"
                 placeholder="请选择商品分类"
-                style="width: 100%"
+                style="width: 300px"
               >
                 <ElOption
                   v-for="cat in categoryList"
@@ -369,210 +498,311 @@ function handleReset() {
               </ElSelect>
             </ElFormItem>
 
-            <ElFormItem label="商品价格" prop="price">
+            <ElDivider content-position="left">价格库存</ElDivider>
+
+            <ElFormItem label="销售价格" prop="price">
               <ElInputNumber
-                v-model="productForm.price"
+                v-model="formData.price"
                 :min="0"
                 :precision="2"
+                :step="10"
                 placeholder="请输入价格"
+                controls-position="right"
                 style="width: 200px"
               />
               <span class="form-tip">元</span>
+
+              <template v-if="skuPriceRange">
+                <ElAlert
+                  type="info"
+                  :closable="false"
+                  show-icon
+                  style="margin-left: 16px; display: inline-flex"
+                >
+                  SKU价格范围: ¥{{ skuPriceRange.min.toFixed(2) }} ~ ¥{{
+                    skuPriceRange.max.toFixed(2)
+                  }}
+                </ElAlert>
+              </template>
             </ElFormItem>
 
-            <ElFormItem label="原价（划线价）">
+            <ElFormItem label="原价">
               <ElInputNumber
-                v-model="productForm.originalPrice"
+                v-model="formData.originalPrice"
                 :min="0"
                 :precision="2"
-                placeholder="可选"
+                :step="10"
+                placeholder="划线价（可选）"
+                controls-position="right"
                 style="width: 200px"
               />
-              <span class="form-tip">元（可选，用于展示优惠）</span>
+              <span class="form-tip">元（用于显示优惠力度）</span>
             </ElFormItem>
 
-            <ElFormItem label="库存数量" prop="stock">
+            <ElFormItem label="商品库存" prop="stock">
               <ElInputNumber
-                v-model="productForm.stock"
+                v-model="formData.stock"
                 :min="0"
+                :step="10"
                 placeholder="请输入库存"
+                controls-position="right"
                 style="width: 200px"
               />
               <span class="form-tip">件</span>
+
+              <template v-if="enableSku">
+                <ElAlert
+                  type="info"
+                  :closable="false"
+                  show-icon
+                  style="margin-left: 16px; display: inline-flex"
+                >
+                  SKU总库存: {{ skuTotalStock }} 件
+                </ElAlert>
+              </template>
             </ElFormItem>
 
-            <ElFormItem label="商品状态" prop="status">
-              <ElRadioGroup v-model="productForm.status">
+            <ElDivider content-position="left">商品状态</ElDivider>
+
+            <ElFormItem label="上架状态">
+              <ElRadioGroup v-model="formData.status">
                 <ElRadio :value="1">立即上架</ElRadio>
                 <ElRadio :value="0">暂不上架</ElRadio>
               </ElRadioGroup>
             </ElFormItem>
           </ElCard>
-        </ElCollapseItem>
+        </ElTabPane>
 
         <!-- 商品图片 -->
-        <ElCollapseItem title="商品图片" name="images">
+        <ElTabPane label="商品图片" name="images">
           <ElCard shadow="never" class="form-card">
-            <ElFormItem label="商品主图" prop="mainImage" required>
-              <MultiImageUpload
-                v-model="mainImageList"
-                :max-count="1"
-                @change="handleMainImageChange"
-              />
-              <div class="form-tip">主图将作为商品列表展示图，建议尺寸 800x800</div>
-            </ElFormItem>
+            <template #header>
+              <span class="card-title">商品主图</span>
+            </template>
 
-            <ElDivider />
-
-            <ElFormItem label="商品图片">
-              <MultiImageUpload
-                v-model="productForm.images"
-                :max-count="9"
-                @change="handleImagesChange"
-              />
-              <div class="form-tip">商品详情页轮播图，支持拖拽排序，建议上传 3-9 张</div>
+            <ElFormItem label="主图" prop="mainImage">
+              <div class="image-upload-section">
+                <MultiImageUpload
+                  :model-value="formData.mainImage ? [formData.mainImage] : []"
+                  @update:model-value="handleMainImageChange"
+                  :max-count="1"
+                  :disabled="isReadonly"
+                />
+                <div class="upload-tip">
+                  建议尺寸：800×800px，支持 jpg、png、gif 格式
+                </div>
+              </div>
             </ElFormItem>
           </ElCard>
-        </ElCollapseItem>
 
-        <!-- 商品详情 -->
-        <ElCollapseItem title="商品详情" name="detail">
-          <ElCard shadow="never" class="form-card">
-            <ElFormItem label="商品详情" prop="description">
-              <Editor
-                v-model="productForm.description"
-                placeholder="请输入商品详细描述..."
-                height="400px"
-              />
+          <ElCard shadow="never" class="form-card" style="margin-top: 16px">
+            <template #header>
+              <span class="card-title">商品图片</span>
+            </template>
+
+            <ElFormItem label="轮播图">
+              <div class="image-upload-section">
+                <MultiImageUpload
+                  v-model="formData.images"
+                  @update:model-value="handleImagesChange"
+                  :max-count="9"
+                  :disabled="isReadonly"
+                />
+                <div class="upload-tip">
+                  最多上传 9 张图片，可拖拽排序。建议尺寸：800×800px
+                </div>
+              </div>
             </ElFormItem>
           </ElCard>
-        </ElCollapseItem>
+        </ElTabPane>
 
         <!-- SKU 规格 -->
-        <ElCollapseItem title="SKU 规格设置" name="sku">
+        <ElTabPane label="SKU规格" name="sku">
           <ElCard shadow="never" class="form-card">
-            <ElFormItem label="启用规格">
-              <ElSwitch
-                v-model="enableSku"
-                active-text="启用多规格"
-                inactive-text="单规格"
-                @change="handleSkuEnableChange"
-              />
-              <span class="form-tip">启用后可设置颜色、内存等多规格组合</span>
-            </ElFormItem>
-
-            <template v-if="enableSku">
-              <ElDivider />
-              <ElFormItem label="规格配置" class="sku-form-item">
-                <SkuGenerator v-model="productForm.skuSpec" @change="handleSkuChange" />
-              </ElFormItem>
+            <template #header>
+              <span class="card-title">规格设置</span>
             </template>
+
+            <ElAlert
+              type="info"
+              title="SKU规格说明"
+              description="添加颜色、内存、存储、显卡规格后，系统会自动生成所有规格组合。每个组合可单独设置库存和价格。"
+              :closable="false"
+              show-icon
+              style="margin-bottom: 20px"
+            />
+
+            <SkuGenerator
+              v-model="formData.skuSpec"
+              @change="handleSkuChange"
+              :disabled="isReadonly"
+            />
           </ElCard>
-        </ElCollapseItem>
-      </ElCollapse>
+        </ElTabPane>
+
+        <!-- 参数信息 -->
+        <ElTabPane label="参数信息" name="params">
+          <div v-for="group in paramGroups" :key="group.title">
+            <ElCard shadow="never" class="form-card" style="margin-bottom: 16px">
+              <template #header>
+                <span class="card-title">{{ group.title }}</span>
+              </template>
+              <div class="params-grid">
+                <ElFormItem
+                  v-for="field in group.fields"
+                  :key="field.key"
+                  :label="field.label"
+                  style="margin-bottom: 18px"
+                >
+                  <ElInput
+                    v-model="(formData.params as any)[field.key]"
+                    :placeholder="'请输入' + field.label"
+                    :disabled="isReadonly"
+                    clearable
+                  />
+                </ElFormItem>
+              </div>
+            </ElCard>
+          </div>
+        </ElTabPane>
+
+        <!-- 商品详情 -->
+        <ElTabPane label="商品详情" name="detail">
+          <ElCard shadow="never" class="form-card">
+            <template #header>
+              <span class="card-title">图文详情</span>
+            </template>
+
+            <ElFormItem label="详情图片">
+              <div class="image-upload-section">
+                <MultiImageUpload
+                  :model-value="formData.detailImages || []"
+                  @update:model-value="(val: string[]) => formData.detailImages = val"
+                  :max-count="20"
+                  :disabled="isReadonly"
+                />
+                <div class="upload-tip">
+                  上传商品详情图片，最多 20 张，可拖拽排序。建议宽度：750px
+                </div>
+              </div>
+            </ElFormItem>
+          </ElCard>
+        </ElTabPane>
+      </ElTabs>
     </ElForm>
 
-    <!-- 底部操作栏 -->
-    <div class="footer-actions">
+    <!-- 底部操作栏（固定） -->
+    <div v-if="!isReadonly" class="footer-actions">
+      <ElButton @click="handleBack">取消</ElButton>
       <ElButton @click="handleReset">重置</ElButton>
-      <ElButton @click="handleCancel">取消</ElButton>
-      <ElButton type="primary" :loading="submitLoading" @click="handleSubmit">
-        {{ isEdit ? '保存修改' : '发布商品' }}
+      <ElButton type="primary" :icon="Check" @click="handleSave" :loading="submitting">
+        保存商品
       </ElButton>
     </div>
   </div>
 </template>
 
-<style lang="scss" scoped>
-.product-edit-container {
+<style scoped lang="scss">
+.product-edit {
   padding: 20px;
-  background: #f5f7fa;
-  min-height: calc(100vh - 140px);
-}
+  padding-bottom: 80px; // 为底部操作栏留空间
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 16px 20px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-
-  .page-title {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: #303133;
-  }
-
-  .header-actions {
+  .page-header {
     display: flex;
-    gap: 12px;
-  }
-}
-
-.product-form {
-  :deep(.el-collapse) {
-    border: none;
-  }
-
-  :deep(.el-collapse-item__header) {
-    font-size: 15px;
-    font-weight: 600;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 16px 20px;
     background: #fff;
-    padding: 0 20px;
-    height: 50px;
-    border-radius: 8px 8px 0 0;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .page-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #303133;
+        margin: 0;
+      }
+    }
+
+    .header-right {
+      display: flex;
+      gap: 10px;
+    }
   }
 
-  :deep(.el-collapse-item__wrap) {
-    border: none;
+  .form-card {
+    .card-title {
+      font-weight: 600;
+      color: #303133;
+    }
+
+    .params-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 0 30px;
+    }
+
+    .form-tip {
+      margin-left: 8px;
+      color: #909399;
+      font-size: 13px;
+    }
+
+    .image-upload-section {
+      .upload-tip {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #909399;
+      }
+    }
+
+    .editor-section {
+      width: 100%;
+    }
   }
 
-  :deep(.el-collapse-item__content) {
-    padding: 0;
-  }
-
-  :deep(.el-collapse-item) {
-    margin-bottom: 16px;
-    border: none;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  .footer-actions {
+    position: fixed;
+    bottom: 0;
+    left: 200px; // 侧边栏宽度
+    right: 0;
+    padding: 16px 24px;
+    background: #fff;
+    border-top: 1px solid #ebeef5;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    z-index: 100;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
   }
 }
 
-.form-card {
-  border: none;
-  border-radius: 0 0 8px 8px;
-
-  :deep(.el-card__body) {
-    padding: 24px 20px;
-  }
-}
-
-.form-tip {
-  margin-left: 12px;
-  font-size: 12px;
-  color: #909399;
-}
-
-.sku-form-item {
-  :deep(.el-form-item__content) {
-    display: block;
-  }
-}
-
-.footer-actions {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 24px;
-  padding: 20px;
+// Element Plus Tabs 样式调整
+:deep(.el-tabs--border-card) {
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  > .el-tabs__header {
+    background: #f5f7fa;
+    border-bottom: none;
+
+    .el-tabs__item {
+      &.is-active {
+        background: #fff;
+        border-bottom-color: #fff;
+      }
+    }
+  }
+
+  > .el-tabs__content {
+    padding: 20px;
+  }
 }
 </style>

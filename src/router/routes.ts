@@ -82,7 +82,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
             },
           },
           {
-            path: 'create',
+            path: 'edit',
             name: 'ProductCreate',
             component: () => import('@/views/product/edit/product-edit.vue'),
             meta: {

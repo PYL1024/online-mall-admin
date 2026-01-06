@@ -29,14 +29,16 @@ interface CouponFormData {
   dateRange: [string, string] | [] // [开始时间, 结束时间]
 }
 
-// --- 2. 模拟数据 (Mock Data) ---
-const mockData: Coupon[] = [
-  { id: 1, name: '新用户注册立减', type: 1, value: 50, minSpend: 0, startTime: '2023-10-01 00:00:00', endTime: '2025-12-31 23:59:59' },
-  { id: 2, name: '电脑品类95折', type: 2, value: 9.5, minSpend: 5000, startTime: '2023-11-01 00:00:00', endTime: '2023-11-15 23:59:59' },
-]
+// --- 2. 数据状态 ---
+// TODO: 等待后端提供优惠券管理API后对接
+// 预计接口：
+// GET /api/admin/coupons - 获取优惠券列表
+// POST /api/admin/coupons - 创建优惠券
+// PUT /api/admin/coupons/{id} - 更新优惠券
+// DELETE /api/admin/coupons/{id} - 删除优惠券
 
 // --- 3. 状态管理 ---
-const couponList = ref<Coupon[]>([...mockData])
+const couponList = ref<Coupon[]>([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref<FormInstance>()
@@ -86,7 +88,7 @@ const handleEdit = (row: Coupon) => {
 // 提交表单
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  
+
   await formEl.validate((valid) => {
     if (valid) {
       // 构造符合后端接口的数据结构
@@ -99,7 +101,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         startTime: formData.dateRange[0],
         endTime: formData.dateRange[1]
       }
-      
+
       if (isEdit.value) {
         // 更新逻辑
         const index = couponList.value.findIndex(item => item.id === payload.id)
@@ -110,7 +112,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         couponList.value.unshift(payload)
         ElMessage.success('优惠券创建成功')
       }
-      
+
       dialogVisible.value = false
     }
   })
@@ -219,9 +221,9 @@ const isExpired = (endTime: string) => {
           <template #default="{ row }">
             <div class="name-cell">
               <span class="coupon-name">{{ row.name }}</span>
-              <el-tag 
-                :type="row.type === 1 ? 'danger' : 'success'" 
-                effect="light" 
+              <el-tag
+                :type="row.type === 1 ? 'danger' : 'success'"
+                effect="light"
                 size="small"
                 class="type-tag"
               >
@@ -267,17 +269,17 @@ const isExpired = (endTime: string) => {
 
         <el-table-column label="状态" width="120" align="center">
           <template #default="{ row }">
-            <el-tag 
-              v-if="isExpired(row.endTime)" 
-              type="info" 
+            <el-tag
+              v-if="isExpired(row.endTime)"
+              type="info"
               size="small"
               effect="plain"
             >
               已过期
             </el-tag>
-            <el-tag 
-              v-else 
-              type="success" 
+            <el-tag
+              v-else
+              type="success"
               size="small"
               class="status-active"
             >
@@ -309,9 +311,9 @@ const isExpired = (endTime: string) => {
     >
       <el-form ref="formRef" :model="formData" :rules="rules" label-width="110px" class="modern-form">
         <el-form-item label="优惠券名称" prop="name">
-          <el-input 
-            v-model="formData.name" 
-            placeholder="例如：双11满减券" 
+          <el-input
+            v-model="formData.name"
+            placeholder="例如：双11满减券"
             clearable
             maxlength="30"
             show-word-limit
@@ -333,9 +335,9 @@ const isExpired = (endTime: string) => {
 
         <el-form-item :label="formData.type === 1 ? '减免金额' : '折扣力度'" prop="value">
           <div class="input-with-unit">
-            <el-input-number 
-              v-model="formData.value" 
-              :min="0" 
+            <el-input-number
+              v-model="formData.value"
+              :min="0"
               :max="formData.type === 2 ? 9.9 : 10000"
               :precision="formData.type === 2 ? 1 : 0"
               :step="formData.type === 2 ? 0.1 : 10"
@@ -351,10 +353,10 @@ const isExpired = (endTime: string) => {
 
         <el-form-item label="使用门槛" prop="minSpend">
           <div class="input-with-unit">
-            <el-input-number 
-              v-model="formData.minSpend" 
-              :min="0" 
-              :step="100" 
+            <el-input-number
+              v-model="formData.minSpend"
+              :min="0"
+              :step="100"
               controls-position="right"
               class="value-input"
             />
@@ -763,7 +765,7 @@ const isExpired = (endTime: string) => {
 .input-with-unit {
   display: flex;
   align-items: center;
-  
+
   .unit {
     margin-left: 10px;
     color: #909399;

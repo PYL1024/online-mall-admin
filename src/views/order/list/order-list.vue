@@ -21,39 +21,6 @@ const loading = ref(false)
 const orders = ref<AdminOrderListItem[]>([])
 const total = ref(0)
 
-/*后续写正式代码时删掉mock代码 begin*/
-const useMockData = true
-const mockOrders: AdminOrderListItem[] = [
-  {
-    orderSn: 'MOCK2025001',
-    totalAmount: 199.9,
-    payAmount: 189.9,
-    status: 1,
-    statusText: '待发货',
-    createdAt: '2025-12-20T10:15:00',
-    itemCount: 2,
-    userId: 10001,
-    username: 'mock_user',
-    receiverName: '张三',
-    receiverPhone: '13800000001',
-  },
-  {
-    orderSn: 'MOCK2025002',
-    totalAmount: 459,
-    payAmount: 449,
-    status: 3,
-    statusText: '已完成',
-    createdAt: '2025-12-19T16:30:00',
-    itemCount: 1,
-    userId: 10002,
-    username: 'alice',
-    receiverName: '李四',
-    receiverPhone: '13900000002',
-  },
-]
-
-/*后续写正式代码时删掉mock代码 end*/
-
 const filters = reactive<OrderListFilters>({
   page: 1,
   pageSize: 20,
@@ -104,17 +71,6 @@ onMounted(() => {
 async function loadOrders() {
   loading.value = true
   try {
-
-/*后续写正式代码时删掉mock代码 begin*/
-    if (useMockData) {
-      orders.value = mockOrders
-      total.value = mockOrders.length
-      loading.value = false
-      return
-    }
-/*后续写正式代码时删掉mock代码 end*/
-
-
     const params: GetAdminOrderListParams = {
       page: filters.page,
       pageSize: filters.pageSize,

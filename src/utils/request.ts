@@ -38,13 +38,14 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const res = response.data
+    const bizStatus = res.status ?? res.code ?? 200
 
     // 根据业务状态码处理
-    if (res.status !== 200) {
+    if (bizStatus !== 200) {
       ElMessage.error(res.message || '请求失败')
 
       // Token 过期或未授权
-      if (res.status === 401) {
+      if (bizStatus === 401) {
         removeToken()
         router.push('/login')
       }

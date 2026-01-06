@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 单图上传组件
+ * 注意：图片不单独上传，使用本地Blob URL预览，保存商品时一起提交
+ */
 import { ref } from 'vue'
 import { Plus, UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -8,14 +12,12 @@ interface Props {
   modelValue?: string | string[]
   limit?: number
   multiple?: boolean
-  fileSize?: number // MB
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   limit: 1,
   multiple: false,
-  fileSize: 5,
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -38,39 +40,41 @@ const handlePictureCardPreview: UploadProps['onPreview'] = (uploadFile) => {
   dialogVisible.value = true
 }
 
-// 上传成功（模拟）
-const handleSuccess: UploadProps['onSuccess'] = (response, uploadFile) => {
-  // 实际项目中这里应该处理后端返回的 URL
-  // 这里做个 Mock 效果，直接用本地 URL
-  ElMessage.success('上传成功')
+/**
+ * 将文件转换为 Base64 Data URL
+ */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 }
 
-// 状态改变（因为没有真实后端，我们在这里处理）
-const handleChange: UploadProps['onChange'] = (uploadFile, uploadFiles) => {
-  // 模拟上传成功，直接使用 Object URL
-  if (uploadFile.status === 'ready') {
-    uploadFile.status = 'success'
-    // 实际开发中应该是上传服务器返回 url
-    // uploadFile.url = URL.createObjectURL(uploadFile.raw!)
-    // 此时 Element Plus 已经生成了 blob url
-  }
+// 状态改变 - 将图片转换为 Base64 Data URL
+const handleChange: UploadProps['onChange'] = async (uploadFile, uploadFiles) => {
+  if (uploadFile.status === 'ready' && uploadFile.raw) {
+    try {
+      // 将图片转换为 Base64 Data URL
+      const base64Url = await fileToBase64(uploadFile.raw)
+      uploadFile.status = 'success'
+      uploadFile.url = base64Url
 
-  if (uploadFile.status === 'success') {
-    emitUpdate(uploadFiles)
+      emitUpdate(uploadFiles)
+      ElMessage.success('图片添加成功')
+    } catch (error) {
+      console.error('图片转换失败:', error)
+      ElMessage.error('图片处理失败，请重试')
+    }
   }
 }
 
 // 上传前校验
 const beforeUpload: UploadProps['beforeUpload'] = (rawFile) => {
-  if (
-    rawFile.type !== 'image/jpeg' &&
-    rawFile.type !== 'image/png' &&
-    rawFile.type !== 'image/gif'
-  ) {
-    ElMessage.error('Avatar picture must be JPG/PNG/GIF format!')
-    return false
-  } else if (rawFile.size / 1024 / 1024 > props.fileSize) {
-    ElMessage.error(`Avatar picture size can not exceed ${props.fileSize}MB!`)
+  const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  if (!validTypes.includes(rawFile.type)) {
+    ElMessage.error('只支持 JPG/PNG/GIF/WebP 格式的图片')
     return false
   }
   return true

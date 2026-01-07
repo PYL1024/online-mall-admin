@@ -350,3 +350,77 @@ export async function uploadImage(_file: File): Promise<{ url: string }> {
     url: `https://picsum.photos/400/400?random=${randomId}`,
   }
 }
+
+// ==================== 商品统计 API ====================
+
+/**
+ * 分类销量数据结构
+ */
+export interface CategorySalesItem {
+  categoryId: number
+  categoryName: string
+  salesCount: number
+  salesAmount: number
+}
+
+/**
+ * 热销商品数据结构
+ */
+export interface HotProductItem {
+  id: number
+  name: string
+  mainImage: string
+  salesCount: number
+  salesAmount: number
+}
+
+/**
+ * 商品统计数据结构
+ */
+export interface ProductStatisticsData {
+  totalProducts: number         // 商品总数
+  onSaleProducts: number        // 在售商品
+  offSaleProducts: number       // 下架商品
+  lowStockProducts: number      // 库存预警（库存<10）
+  totalCategories: number       // 分类总数
+  todayViews: number            // 今日浏览量
+  monthViews: number            // 本月浏览量
+  categorySales: CategorySalesItem[]  // 分类销量
+  hotProducts: HotProductItem[]       // 热销商品Top5
+}
+
+/**
+ * 获取商品统计数据
+ * API: GET /api/admin/products/statistics
+ */
+export async function getProductStatistics(): Promise<ProductStatisticsData> {
+  await delay(500)
+  
+  // Mock 数据
+  return {
+    totalProducts: 256,
+    onSaleProducts: 198,
+    offSaleProducts: 58,
+    lowStockProducts: 15,
+    totalCategories: 25,
+    todayViews: 3680,
+    monthViews: 125800,
+    categorySales: [
+      { categoryId: 1, categoryName: 'ThinkPad系列', salesCount: 580, salesAmount: 7540000 },
+      { categoryId: 2, categoryName: '拯救者系列', salesCount: 420, salesAmount: 5880000 },
+      { categoryId: 3, categoryName: 'YOGA系列', salesCount: 350, salesAmount: 3850000 },
+      { categoryId: 4, categoryName: 'ThinkBook系列', salesCount: 280, salesAmount: 2520000 },
+      { categoryId: 5, categoryName: '小新系列', salesCount: 450, salesAmount: 2700000 }
+    ],
+    hotProducts: [
+      { id: 1, name: 'ThinkPad X1 Carbon 2024', mainImage: 'https://picsum.photos/100/100?random=1', salesCount: 156, salesAmount: 2027400 },
+      { id: 2, name: '拯救者 Y9000P 2024', mainImage: 'https://picsum.photos/100/100?random=2', salesCount: 142, salesAmount: 1704000 },
+      { id: 3, name: 'YOGA Pro 14s', mainImage: 'https://picsum.photos/100/100?random=3', salesCount: 128, salesAmount: 1152000 },
+      { id: 4, name: '小新 Pro 16 2024', mainImage: 'https://picsum.photos/100/100?random=4', salesCount: 115, salesAmount: 690000 },
+      { id: 5, name: 'ThinkBook 14+ 2024', mainImage: 'https://picsum.photos/100/100?random=5', salesCount: 98, salesAmount: 588000 }
+    ]
+  }
+  
+  // 真实API调用
+  // return get<ProductStatisticsData>('/api/admin/products/statistics')
+}

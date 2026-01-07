@@ -247,6 +247,95 @@ const refundOrderExample = async () => {
 };
 */
 
+// ==================== 订单统计 API ====================
+
+/**
+ * 订单状态分布数据结构
+ */
+export interface OrderStatusDistribution {
+  pending: number        // 待付款
+  paid: number           // 待发货
+  shipped: number        // 待收货
+  completed: number      // 已完成
+  cancelled: number      // 已取消
+  refunding: number      // 退款中
+}
+
+/**
+ * 订单趋势数据（近7天）
+ */
+export interface OrderTrendItem {
+  date: string           // 日期 YYYY-MM-DD
+  orderCount: number     // 订单数
+  orderAmount: number    // 订单金额
+}
+
+/**
+ * 订单统计数据结构
+ */
+export interface OrderStatisticsData {
+  totalOrders: number           // 订单总数
+  todayOrders: number           // 今日订单
+  monthOrders: number           // 本月订单
+  totalAmount: number           // 累计销售额
+  todayAmount: number           // 今日销售额
+  monthAmount: number           // 本月销售额
+  pendingShipment: number       // 待发货订单
+  refundingOrders: number       // 退款中订单
+  statusDistribution: OrderStatusDistribution  // 订单状态分布
+  weeklyTrend: OrderTrendItem[] // 近7天趋势
+}
+
+// 模拟开关
+const USE_ORDER_MOCK = true
+
+/**
+ * 获取订单统计数据
+ * API: GET /api/admin/orders/statistics
+ */
+export function getOrderStatistics(): Promise<OrderStatisticsData> {
+  if (USE_ORDER_MOCK) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // 生成近7天的日期
+        const weeklyTrend: OrderTrendItem[] = []
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date()
+          date.setDate(date.getDate() - i)
+          weeklyTrend.push({
+            date: date.toISOString().split('T')[0] ?? '',
+            orderCount: Math.floor(Math.random() * 50) + 20,
+            orderAmount: Math.floor(Math.random() * 50000) + 10000
+          })
+        }
+        
+        resolve({
+          totalOrders: 12580,
+          todayOrders: 86,
+          monthOrders: 1560,
+          totalAmount: 2568900,
+          todayAmount: 35680,
+          monthAmount: 458900,
+          pendingShipment: 45,
+          refundingOrders: 12,
+          statusDistribution: {
+            pending: 120,
+            paid: 45,
+            shipped: 230,
+            completed: 11800,
+            cancelled: 350,
+            refunding: 35
+          },
+          weeklyTrend
+        })
+      }, 500)
+    })
+  }
+  // 真实API调用
+  // return get<OrderStatisticsData>('/api/admin/orders/statistics')
+  return Promise.reject('API not implemented')
+}
+
 
 
 

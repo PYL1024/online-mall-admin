@@ -5,55 +5,42 @@
  * 负责人：成员 D
  * 功能：公告发布、内容管理、状态控制
  */
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bell, Timer, Plus, Edit, Delete, Check } from '@element-plus/icons-vue'
+import { 
+  getNoticeList, 
+  addNotice, 
+  updateNotice, 
+  deleteNotice,
+  type Notice,
+  type NoticeParams
+} from '@/api'
 
-interface Notice {
-  id: number
-  title: string
-  content: string
-  publishTime: string
-  status: boolean
-}
-
-const noticeList = ref<Notice[]>([
-  {
-    id: 1,
-    title: '春节期间发货说明',
-    content: '春节期间订单将在节后统一发货，请您谅解。',
-    publishTime: '2025-01-10',
-    status: true
-  },
-  {
-    id: 2,
-    title: '新年促销活动公告',
-    content: '2025年新年促销活动即将开始，全场商品低至5折起！',
-    publishTime: '2025-01-01',
-    status: true
-  }
-])
+const noticeList = ref<Notice[]>([])
+const loading = ref(true)
+const total = ref(0)
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const submitLoading = ref(false)
 
-const noticeForm = reactive<Notice>({
-  id: 0,
+const noticeForm = reactive<NoticeParams>({
+  id: undefined,
   title: '',
   content: '',
-  publishTime: '',
-  status: true
+  type: 1,
+  sortOrder: 0,
+  isActive: 1
 })
 
 const resetForm = () => {
-  Object.assign(noticeForm, {
-    id: Date.now(),
-    title: '',
-    content: '',
-    publishTime: new Date().toISOString().slice(0, 10),
-    status: true
-  })
+  noticeForm.id = undefined
+  noticeForm.title = ''
+  noticeForm.content = ''
+  noticeForm.type = 1
+  noticeForm.sortOrder = 0
+  noticeForm.isActive = 1
 }
 
 const openCreateDialog = () => {
@@ -64,49 +51,104 @@ const openCreateDialog = () => {
 
 const openEditDialog = (row: Notice) => {
   isEdit.value = true
-  Object.assign(noticeForm, row)
+  noticeForm.id = row.id
+  noticeForm.title = row.title
+  noticeForm.content = row.content
+  noticeForm.type = row.type
+  noticeForm.sortOrder = row.sortOrder
+  noticeForm.isActive = row.isActive
   dialogVisible.value = true
 }
 
-const handleSubmit = () => {
+/* ========================
+   获取公告列表
+======================== */
+const fetchNoticeList = async () => {
+  loading.value = true
+  try {
+    const res = await getNoticeList({ page: 1, pageSize: 100 })
+    noticeList.value = res.list
+    total.value = res.total
+    if (res.list.length === 0) {
+      ElMessage.warning('暂无公告数据')
+    } else {
+      ElMessage.success(`成功加载 ${res.list.length} 条公告`)
+    }
+  } catch (error) {
+    console.error('获取公告列表失败:', error)
+    ElMessage.error('获取公告列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+/* ========================
+   新增/编辑公告
+======================== */
+const handleSubmit = async () => {
   if (!noticeForm.title || !noticeForm.content) {
     ElMessage.warning('请填写完整公告信息')
     return
   }
   
   submitLoading.value = true
-  setTimeout(() => {
-    if (isEdit.value) {
-      const i = noticeList.value.findIndex(n => n.id === noticeForm.id)
-      noticeList.value[i] = { ...noticeForm }
+  try {
+    if (isEdit.value && noticeForm.id) {
+      await updateNotice(noticeForm.id, noticeForm)
       ElMessage.success('公告已更新')
     } else {
-      noticeList.value.unshift({ ...noticeForm })
+      await addNotice(noticeForm)
       ElMessage.success('公告已发布')
     }
     dialogVisible.value = false
+    fetchNoticeList()
+  } catch (error) {
+    console.error('保存公告失败:', error)
+    ElMessage.error('保存公告失败')
+  } finally {
     submitLoading.value = false
-  }, 500)
+  }
 }
 
-const handleDelete = (row: Notice) => {
-  ElMessageBox.confirm(`确认删除公告「${row.title}」吗？`, '提示', { 
-    type: 'warning',
-    confirmButtonText: '确定',
-    cancelButtonText: '取消'
-  }).then(() => {
-    noticeList.value = noticeList.value.filter(n => n.id !== row.id)
+/* ========================
+   删除公告
+======================== */
+const handleDelete = async (row: Notice) => {
+  try {
+    await ElMessageBox.confirm(`确认删除公告「${row.title}」吗？`, '提示', { 
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    await deleteNotice(row.id)
     ElMessage.success('删除成功')
-  })
+    fetchNoticeList()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除公告失败:', error)
+      ElMessage.error('删除公告失败')
+    }
+  }
 }
 
+/* ========================
+   状态切换
+======================== */
 const handleStatusChange = (row: Notice) => {
-  row.status = !row.status
-  ElMessage.success(row.status ? '公告已上线' : '公告已下线')
+  const newStatus = row.isActive === 1 ? 0 : 1
+  ElMessage.success(newStatus === 1 ? '公告已上线' : '公告已下线')
+  // TODO: 调用 updateNoticeStatus API
 }
 
-const onlineCount = computed(() => noticeList.value.filter(n => n.status).length)
-const offlineCount = computed(() => noticeList.value.filter(n => !n.status).length)
+const onlineCount = computed(() => noticeList.value.filter(n => n.isActive === 1).length)
+const offlineCount = computed(() => noticeList.value.filter(n => n.isActive === 0).length)
+
+/* ========================
+   生命周期
+======================== */
+onMounted(() => {
+  fetchNoticeList()
+})
 </script>
 
 <template>
@@ -195,29 +237,29 @@ const offlineCount = computed(() => noticeList.value.filter(n => !n.status).leng
           <div class="notice-header">
             <div class="notice-title">{{ item.title }}</div>
             <el-tag 
-              :type="item.status ? 'success' : 'info'" 
+              :type="item.isActive === 1 ? 'success' : 'info'" 
               effect="light"
               size="small"
               class="status-tag"
             >
-              <span v-if="item.status" class="pulse-dot"></span>
-              {{ item.status ? '展示中' : '已下线' }}
+              <span v-if="item.isActive === 1" class="pulse-dot"></span>
+              {{ item.isActive === 1 ? '展示中' : '已下线' }}
             </el-tag>
           </div>
           <div class="notice-content">{{ item.content }}</div>
           <div class="notice-footer">
             <div class="publish-time">
               <el-icon><Timer /></el-icon>
-              <span>{{ item.publishTime }}</span>
+              <span>{{ item.createTime }}</span>
             </div>
             <div class="notice-actions">
               <el-button 
                 size="small" 
-                :type="item.status ? 'warning' : 'success'"
+                :type="item.isActive === 1 ? 'warning' : 'success'"
                 plain
                 @click="handleStatusChange(item)"
               >
-                {{ item.status ? '下线' : '上线' }}
+                {{ item.isActive === 1 ? '下线' : '上线' }}
               </el-button>
               <el-button size="small" type="primary" plain @click="openEditDialog(item)">
                 <el-icon><Edit /></el-icon>
@@ -273,6 +315,13 @@ const offlineCount = computed(() => noticeList.value.filter(n => !n.status).leng
             </template>
           </el-input>
         </el-form-item>
+        <el-form-item label="类型" required>
+          <el-select v-model="noticeForm.type" placeholder="请选择公告类型" style="width: 100%;">
+            <el-option :value="1" label="系统公告" />
+            <el-option :value="2" label="活动公告" />
+            <el-option :value="3" label="维护公告" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="内容" required>
           <el-input 
             type="textarea" 
@@ -285,7 +334,9 @@ const offlineCount = computed(() => noticeList.value.filter(n => !n.status).leng
         </el-form-item>
         <el-form-item label="状态">
           <el-switch 
-            v-model="noticeForm.status" 
+            v-model="noticeForm.isActive" 
+            :active-value="1"
+            :inactive-value="0"
             active-text="展示"
             inactive-text="隐藏"
             active-color="#667eea"

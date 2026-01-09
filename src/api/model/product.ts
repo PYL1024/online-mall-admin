@@ -40,7 +40,8 @@ export interface Product {
   originalPrice?: number // 原价
   stock: number // 库存
   status: 0 | 1 // 0-下架，1-上架
-  description: string // 商品详情（富文本）
+  description: string // 商品简短描述
+  detailImages?: string[] // 图文详情图片
   tag?: string // 分类标签
   skuSpec?: SkuSpec // SKU规格
   params?: ProductParams // 商品参数
@@ -56,6 +57,7 @@ export interface SkuSpec {
   rams: string[]      // 对应后端内存容量
   storages: string[]  // 对应后端存储容量
   gpus: string[]      // 对应后端显卡
+  vramCapacities: string[] // 显存容量
   combinations: SkuCombination[] // 规格组合
 }
 
@@ -68,6 +70,8 @@ export interface SkuCombination {
   ram: string
   storage: string
   gpu: string
+  os: string
+  vramCapacity: string
   stock: number
   price: number
 }
@@ -93,22 +97,20 @@ export interface ProductForm {
 
 /**
  * 商品创建/更新请求数据（对应后端API）
+ * 根据 POST /api/admin/products 规范
  */
 export interface ProductCreateRequest {
-  category_id?: number | string | null // 分类ID
-  name: string                          // 商品名称
+  category_id?: number | string | null // 分类ID，可为空
+  name: string                          // 商品名称（必填，不能重复）
   description?: string                  // 商品描述
-  price?: number                        // 价格
-  stock?: number                        // 库存
-  image?: string                        // 主图（单图，列表展示用）
   detail_html?: string                  // 商品详情HTML
-  main_images?: string[]                // 主图数组（轮播图）
-  tags?: string[]                       // 标签
+  main_images?: string[]                // 主图数组（URL地址）
+  tags?: string[]                       // 商品标签
 
   // 技术参数（扁平化到根节点）
   model?: string
-  os?: string
-  positioning?: string
+  os?: string                           // 操作系统
+  positioning?: string                  // 定位
   cpu_model?: string
   cpu_series?: string
   max_turbo_freq?: string
@@ -133,9 +135,6 @@ export interface ProductCreateRequest {
   weight?: string
   thickness?: string
   software?: string
-
-  specs?: ProductSpec[]               // 规格定义
-  skus?: Partial<ProductSku>[]        // SKU列表 (后端可能还没统一 snake_case，保留 key)
 }
 
 /**
@@ -262,4 +261,55 @@ export interface ProductDetailResponse {
   specs: ProductSpec[]
   skus: ProductSku[]
   params: ProductParams
+}
+
+// ==================== SKU API 相关类型 ====================
+
+/**
+ * SKU 创建请求数据（对应后端 POST /api/admin/sku）
+ */
+export interface SkuCreateRequest {
+  product_id: number
+  price: number
+  stock: number
+  sales_count?: number
+  os: string
+  cpu: string
+  ram: string
+  storage: string
+  gpu: string
+  vram_capacity: string
+  is_active?: number // 1-激活，0-禁用
+}
+
+/**
+ * SKU 创建响应
+ */
+export interface SkuCreateResponse {
+  id: number
+}
+
+/**
+ * SKU 更新请求数据（对应后端 PUT /api/admin/sku/{id}）
+ */
+export interface SkuUpdateRequest {
+  product_id?: number
+  price?: number
+  stock?: number
+  sales_count?: number
+  os?: string
+  cpu?: string
+  ram?: string
+  storage?: string
+  gpu?: string
+  vram_capacity?: string
+  is_active?: number
+}
+
+/**
+ * SKU 批量更新状态请求数据（对应后端 PUT /api/admin/sku/batch-status）
+ */
+export interface SkuBatchUpdateStatusRequest {
+  ids: number[]
+  is_active: number // 1-激活，0-禁用
 }

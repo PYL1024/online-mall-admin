@@ -64,7 +64,7 @@ const isCollapse = computed(() => appStore.sidebarCollapsed)
 
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: 16px;
 }
 
 // 侧边栏固定定位样式

@@ -390,7 +390,7 @@ function getStatusText(status: 0 | 1) {
               v-model="filterForm.keyword"
               placeholder="请输入商品名称"
               clearable
-              style="width: 200px"
+              style="width: 160px"
               @keyup.enter="handleSearch"
             />
           </ElFormItem>
@@ -400,7 +400,7 @@ function getStatusText(status: 0 | 1) {
               v-model="filterForm.categoryId"
               placeholder="全部分类"
               clearable
-              style="width: 160px"
+              style="width: 130px"
             >
               <ElOption
                 v-for="cat in categoryList"
@@ -414,9 +414,9 @@ function getStatusText(status: 0 | 1) {
           <ElFormItem label="商品状态">
             <ElSelect
               v-model="filterForm.status"
-              placeholder="全部状态"
+              placeholder="全部"
               clearable
-              style="width: 120px"
+              style="width: 100px"
             >
               <ElOption
                 v-for="opt in statusOptions"
@@ -513,9 +513,9 @@ function getStatusText(status: 0 | 1) {
         border
         stripe
       >
-        <ElTableColumn type="selection" width="50" align="center" />
+        <ElTableColumn type="selection" width="45" align="center" />
 
-        <ElTableColumn label="商品信息" min-width="300">
+        <ElTableColumn label="商品信息" min-width="200">
           <template #default="{ row }">
             <div class="product-info">
               <ElImage
@@ -533,7 +533,7 @@ function getStatusText(status: 0 | 1) {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="categoryName" label="分类" width="160" align="center">
+        <ElTableColumn prop="categoryName" label="分类" width="110" align="center">
           <template #default="{ row }">
             <div>
               <ElTag size="small" type="info" style="margin-bottom: 4px">{{ row.categoryName || '-' }}</ElTag>
@@ -542,7 +542,7 @@ function getStatusText(status: 0 | 1) {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn label="价格" width="150" align="right">
+        <ElTableColumn label="价格" width="110" align="right">
           <template #default="{ row }">
             <div class="price-cell">
               <span class="current-price">{{ formatPrice(row.price) }}</span>
@@ -553,13 +553,13 @@ function getStatusText(status: 0 | 1) {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="stock" label="库存" width="100" align="center">
+        <ElTableColumn prop="stock" label="库存" width="80" align="center">
           <template #default="{ row }">
             <span :class="{ 'low-stock': row.stock < 10 }">{{ row.stock }}</span>
           </template>
         </ElTableColumn>
 
-        <ElTableColumn label="状态" width="100" align="center">
+        <ElTableColumn label="状态" width="90" align="center">
           <template #default="{ row }">
             <ElTag :type="getStatusType(row.status)" effect="light">
               {{ getStatusText(row.status) }}
@@ -567,9 +567,9 @@ function getStatusText(status: 0 | 1) {
           </template>
         </ElTableColumn>
 
-        <ElTableColumn prop="updateTime" label="更新时间" width="170" align="center" />
+        <ElTableColumn prop="updateTime" label="更新时间" width="160" align="center" />
 
-        <ElTableColumn label="操作" width="180" align="center" fixed="right">
+        <ElTableColumn label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
             <ElButton type="primary" link :icon="View" @click="handleView(row)">
               查看
@@ -609,10 +609,10 @@ function getStatusText(status: 0 | 1) {
 
 <style scoped lang="scss">
 .product-list {
-  padding: 20px;
+  padding: 12px;
 
   .filter-card {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 
     .filter-form {
       .filter-row {
@@ -621,8 +621,8 @@ function getStatusText(status: 0 | 1) {
         align-items: flex-start;
 
         &.advanced {
-          margin-top: 16px;
-          padding-top: 16px;
+          margin-top: 12px;
+          padding-top: 12px;
           border-top: 1px dashed #ebeef5;
         }
 
@@ -640,7 +640,7 @@ function getStatusText(status: 0 | 1) {
   }
 
   .action-card {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 
     .action-bar {
       display: flex;
@@ -665,12 +665,12 @@ function getStatusText(status: 0 | 1) {
     .product-info {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
 
       .product-image {
-        width: 60px;
-        height: 60px;
-        border-radius: 6px;
+        width: 48px;
+        height: 48px;
+        border-radius: 4px;
         flex-shrink: 0;
         cursor: pointer;
       }

@@ -11,8 +11,11 @@ import type {
   ProductCreateRequest,
   ProductCreateResponse,
   BatchUpdateStatusRequest,
-  ProductListResponse,
   ProductDetailResponse,
+  ProductSimple,
+  SkuCreateRequest,
+  SkuUpdateRequest,
+  SkuCreateResponse,
 } from './model/product'
 import { get, post, del, put } from '@/utils/request'
 
@@ -138,7 +141,7 @@ export async function updateCategorySort(
   _data: { id: number; sort: number; parentId: number }[],
 ): Promise<void> {
   // 后端API暂不支持排序功能，此函数保留用于未来扩展
-  console.warn('排序功能暂不支持')
+  console.warn('排序功能暂不支持', _data)
   return Promise.resolve()
 }
 
@@ -187,7 +190,18 @@ export async function getProductList(
     queryParams.maxPrice = params.priceMax
   }
 
-  const response = await get<any>(PRODUCT_LIST, queryParams)
+  // 定义响应类型
+  interface RawResponse {
+    productSimple?: ProductSimple[]
+    ProductSimple?: ProductSimple[]
+    data?: ProductSimple[]
+    list?: ProductSimple[]
+    total?: number
+    page?: number
+    pageSize?: string | number
+  }
+
+  const response = await get<RawResponse | ProductSimple[]>(PRODUCT_LIST, queryParams)
 
   // 为了给商品补全 categoryId，我们需要拿分类树做匹配
   let categories: Category[] = []
@@ -210,37 +224,53 @@ export async function getProductList(
   if (categories.length > 0) flatten(categories)
 
   // 兼容处理：后端返回字段名为 productSimple (小写p)
-  const rawList = Array.isArray(response)
-    ? response
-    : response.productSimple || response.ProductSimple || response.data || response.list || []
+  const isArray = Array.isArray(response)
+  const rawList = isArray
+    ? (response as ProductSimple[])
+    : ((response as RawResponse).productSimple ||
+        (response as RawResponse).ProductSimple ||
+        (response as RawResponse).data ||
+        (response as RawResponse).list ||
+        [])
 
-  const total = response.total || (Array.isArray(response) ? response.length : 0)
+  const total = isArray
+    ? (response as ProductSimple[]).length
+    : (response as RawResponse).total || 0
 
   // 转换后端数据格式并串行/并行获取详情以获取完整数据（如 categoryId 需要通过 tag 映射）
   const list: Product[] = await Promise.all(
-    rawList.map(async (item: any) => {
+    rawList.map(async (item) => {
       // 获取商品详情以获取更完整的信息
       const detail = await getProductDetail(item.id)
 
+      // 转换为带可选字段的类型以便访问
+      const itemExt = item as ProductSimple & {
+        categoryId?: number | string
+        status?: number
+        description?: string
+        mainImage?: string
+        stock?: number
+      }
+
       // 计算最终的分类 ID
-      const categoryId =
-        item.categoryId ||
-        detail?.categoryId ||
-        (item.tag ? categoryMap.get(item.tag) : 0) ||
-        0
+      const categoryId = Number(
+        itemExt.categoryId || detail?.categoryId || (item.tag ? categoryMap.get(item.tag) : 0) || 0,
+      )
 
       return {
         id: item.id,
         name: item.name,
         categoryId,
         // 优先使用详情接口返回的分类名称，其次是标签，最后通过ID映射
-        categoryName: detail?.categoryName || item.tag || idToNameMap.get(categoryId) || '',
-        mainImage: detail?.mainImage || item.image || item.mainImage || '',
-        images: detail?.images && detail.images.length > 0 ? detail.images : [item.image || ''],
+        categoryName:
+          detail?.categoryName || item.tag || idToNameMap.get(categoryId) || '',
+        mainImage: detail?.mainImage || item.image || itemExt.mainImage || '',
+        images:
+          detail?.images && detail.images.length > 0 ? detail.images : [item.image || ''],
         price: detail?.price || item.price || 0,
-        stock: detail?.stock || item.stock || 0,
-        status: item.status ?? 1,
-        description: detail?.description || item.description || '',
+        stock: detail?.stock || itemExt.stock || 0,
+        status: (itemExt.status === 0 ? 0 : 1) as 1 | 0,
+        description: detail?.description || itemExt.description || '',
         tag: item.tag,
       }
     }),
@@ -249,8 +279,8 @@ export async function getProductList(
   return {
     list,
     total: total,
-    page: response.page || params.page,
-    pageSize: Number(response.pageSize || params.pageSize),
+    page: isArray ? params.page : (response as RawResponse).page || params.page,
+    pageSize: Number(isArray ? params.pageSize : (response as RawResponse).pageSize || params.pageSize),
   }
 }
 
@@ -274,6 +304,18 @@ export async function getProductDetail(id: number): Promise<Product | null> {
     // 计算总库存
     const totalStock = response.skus?.reduce((sum, sku) => sum + sku.stock, 0) || 0
 
+    // 从 detailHtml 中提取图片 URL
+    const detailImages: string[] = []
+    if (response.detailHtml) {
+      const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi
+      let match
+      while ((match = imgRegex.exec(response.detailHtml)) !== null) {
+        if (match[1]) {
+          detailImages.push(match[1])
+        }
+      }
+    }
+
     // 转换后端数据格式为前端格式
     const product: Product = {
       id: response.id,
@@ -285,22 +327,29 @@ export async function getProductDetail(id: number): Promise<Product | null> {
       price,
       stock: totalStock,
       status: 1,
-      description: response.detailHtml || response.desc || '',
+      description: response.desc || '', // 使用简短描述
+      detailImages, // 从 detailHtml 提取的图片
       params: response.params, // 保留原始参数
       skuSpec: {
         cpus: response.specs?.find(s => s.name === '处理器' || s.name === 'CPU')?.values || [],
         rams: response.specs?.find(s => s.name === '内存容量' || s.name === '内存')?.values || [],
         storages: response.specs?.find(s => s.name === '存储容量' || s.name === '存储')?.values || [],
         gpus: response.specs?.find(s => s.name === '显卡' || s.name === '显卡规格')?.values || [],
-        combinations: response.skus?.map(s => ({
-          id: s.id,
-          cpu: String((s.specs as any).cpu || ''),
-          ram: String((s.specs as any).ram || (s.specs as any).memory || ''),
-          storage: String((s.specs as any).storage || ''),
-          gpu: String((s.specs as any).gpu || ''),
-          stock: s.stock,
-          price: s.price
-        })) || []
+        vramCapacities: response.specs?.find(s => s.name === '显存容量' || s.name === '显存')?.values || [],
+        combinations: response.skus?.map((s) => {
+          const specs = s.specs as Record<string, string | number>
+          return {
+            id: s.id,
+            cpu: String(specs.cpu || ''),
+            ram: String(specs.ram || specs.memory || ''),
+            storage: String(specs.storage || ''),
+            gpu: String(specs.gpu || ''),
+            os: String(specs.os || ''),
+            vramCapacity: String(specs.vramCapacity || specs.vram_capacity || ''),
+            stock: s.stock,
+            price: s.price,
+          }
+        }) || [],
       }
     }
 
@@ -315,9 +364,10 @@ export async function getProductDetail(id: number): Promise<Product | null> {
  * 添加商品
  * POST /api/admin/products
  * 创建新的商品，名称不能重复
+ * 注意：商品的 SKU 通过单独的 SKU API 管理
  */
 export async function addProduct(data: ProductForm): Promise<ProductCreateResponse> {
-  // 组装主图数组：优先主图，其次轮播图
+  // 组装主图数组：优先主图，其次轮播图（URL地址）
   const mainImages: string[] = []
   if (data.mainImage) mainImages.push(data.mainImage)
   if (Array.isArray(data.images) && data.images.length > 0) {
@@ -328,44 +378,17 @@ export async function addProduct(data: ProductForm): Promise<ProductCreateRespon
   const detailHtmlFromImages = Array.isArray(data.detailImages)
     ? data.detailImages
         .filter(Boolean)
-        .map((url) => `<p><img src="${url}" style="max-width:100%;" /></p>`)
+        .map((url) => `<img src="${url}" style="max-width:100%;display:block;" />`)
         .join('\n')
     : ''
 
-  // 组装规格
-  const specs: ProductSpec[] = []
-  if (data.skuSpec) {
-    if (data.skuSpec.cpus?.length) specs.push({ name: '处理器', values: data.skuSpec.cpus })
-    if (data.skuSpec.rams?.length) specs.push({ name: '内存容量', values: data.skuSpec.rams })
-    if (data.skuSpec.storages?.length) specs.push({ name: '存储容量', values: data.skuSpec.storages })
-    if (data.skuSpec.gpus?.length) specs.push({ name: '显卡', values: data.skuSpec.gpus })
-  }
-
-  // 组装 SKU (使用英文 key)
-  const skus = data.skuSpec?.combinations.map((c) => ({
-    id: c.id,
-    price: Number(c.price) || 0,
-    stock: Number(c.stock) || 0,
-    specs: {
-      cpu: c.cpu,
-      ram: c.ram,
-      storage: c.storage,
-      gpu: c.gpu,
-    },
-  }))
-
   // 将前端表单数据转换为后端API所需格式
   const requestBody: ProductCreateRequest = {
-    category_id: data.categoryId,
+    category_id: data.categoryId || null,
     name: data.name,
     description: data.description || '',
-    price: data.price ? Number(data.price) : 0,
-    stock: data.stock ? Number(data.stock) : 0,
-    image: data.mainImage || '',
     detail_html: detailHtmlFromImages || data.description || '',
     main_images: mainImages.length ? mainImages : [],
-    specs: specs.length ? specs : undefined,
-    skus: skus?.length ? skus : undefined,
 
     // 注入技术参数并转换为 snake_case
     model: data.params?.model,
@@ -401,8 +424,7 @@ export async function addProduct(data: ProductForm): Promise<ProductCreateRespon
   console.log('📦 addProduct 发送给后端的数据摘要:', {
     name: requestBody.name,
     category_id: requestBody.category_id,
-    price: requestBody.price,
-    skusCount: skus?.length || 0,
+    main_images_count: mainImages.length,
   })
 
   const response = await post<ProductCreateResponse>(PRODUCT_BASE, requestBody as unknown as Record<string, unknown>)
@@ -416,12 +438,14 @@ export async function addProduct(data: ProductForm): Promise<ProductCreateRespon
  * 更新商品
  * PUT /api/admin/products/{id}
  * 更新商品信息，名称不能重复且不能为空
+ * 注意：商品的 SKU 通过单独的 SKU API 管理
  */
 export async function updateProduct(data: ProductForm): Promise<ProductCreateResponse> {
   if (!data.id) {
     throw new Error('商品ID不能为空')
   }
 
+  // 组装主图数组：优先主图，其次轮播图（URL地址）
   const mainImages: string[] = []
   if (data.mainImage) mainImages.push(data.mainImage)
   if (Array.isArray(data.images) && data.images.length > 0) {
@@ -432,44 +456,17 @@ export async function updateProduct(data: ProductForm): Promise<ProductCreateRes
   const detailHtmlFromImages = Array.isArray(data.detailImages)
     ? data.detailImages
         .filter(Boolean)
-        .map((url) => `<p><img src="${url}" style="max-width:100%;" /></p>`)
+        .map((url) => `<img src="${url}" style="max-width:100%;display:block;" />`)
         .join('\n')
     : ''
-
-  // 组装规格
-  const specs: ProductSpec[] = []
-  if (data.skuSpec) {
-    if (data.skuSpec.cpus?.length) specs.push({ name: '处理器', values: data.skuSpec.cpus })
-    if (data.skuSpec.rams?.length) specs.push({ name: '内存容量', values: data.skuSpec.rams })
-    if (data.skuSpec.storages?.length) specs.push({ name: '存储容量', values: data.skuSpec.storages })
-    if (data.skuSpec.gpus?.length) specs.push({ name: '显卡', values: data.skuSpec.gpus })
-  }
-
-  // 组装 SKU
-  const skus = data.skuSpec?.combinations.map((c) => ({
-    id: c.id,
-    price: Number(c.price) || 0,
-    stock: Number(c.stock) || 0,
-    specs: {
-      cpu: c.cpu,
-      ram: c.ram,
-      storage: c.storage,
-      gpu: c.gpu,
-    },
-  }))
 
   // 将前端表单数据转换为后端API所需格式
   const requestBody: ProductCreateRequest = {
     category_id: data.categoryId ? Number(data.categoryId) : null,
     name: data.name,
     description: data.description || '',
-    price: data.price ? Number(data.price) : 0,
-    stock: data.stock ? Number(data.stock) : 0,
-    image: data.mainImage || '',
     detail_html: detailHtmlFromImages || data.description || '',
     main_images: mainImages.length ? mainImages : [],
-    specs: specs.length ? specs : undefined,
-    skus: skus?.length ? skus : undefined,
 
     // 注入技术参数并转换为 snake_case
     model: data.params?.model,
@@ -533,76 +530,124 @@ export async function batchUpdateProductStatus(ids: number[], status: 0 | 1): Pr
   )
 }
 
-// ==================== 商品统计 API ====================
+const SKU_BASE = '/api/admin/sku'
 
 /**
- * 分类销量数据结构
+ * 新增 SKU
+ * POST /api/admin/sku
+ * 为指定产品创建新的SKU（具体规格）
  */
-export interface CategorySalesItem {
-  categoryId: number
-  categoryName: string
-  salesCount: number
-  salesAmount: number
+export async function addSku(data: SkuCreateRequest): Promise<SkuCreateResponse> {
+  return post<SkuCreateResponse>(
+    SKU_BASE,
+    data as unknown as Record<string, unknown>,
+  )
 }
 
 /**
- * 热销商品数据结构
+ * 更新 SKU
+ * PUT /api/admin/sku/{id}
+ * 更新指定ID的SKU信息
  */
-export interface HotProductItem {
-  id: number
-  name: string
-  mainImage: string
-  salesCount: number
-  salesAmount: number
+export async function updateSku(id: number, data: SkuUpdateRequest): Promise<void> {
+  return put<void>(
+    `${SKU_BASE}/${id}`,
+    data as unknown as Record<string, unknown>,
+  )
 }
 
 /**
- * 商品统计数据结构
+ * 删除 SKU
+ * DELETE /api/admin/sku/{id}
+ * 删除指定ID的SKU
  */
-export interface ProductStatisticsData {
-  totalProducts: number         // 商品总数
-  onSaleProducts: number        // 在售商品
-  offSaleProducts: number       // 下架商品
-  lowStockProducts: number      // 库存预警（库存<10）
-  totalCategories: number       // 分类总数
-  todayViews: number            // 今日浏览量
-  monthViews: number            // 本月浏览量
-  categorySales: CategorySalesItem[]  // 分类销量
-  hotProducts: HotProductItem[]       // 热销商品Top5
+export async function deleteSku(id: number): Promise<void> {
+  return del<void>(`${SKU_BASE}/${id}`)
 }
 
 /**
- * 获取商品统计数据
- * API: GET /api/admin/products/statistics
+ * 批量更新 SKU 状态
+ * PUT /api/admin/sku/batch-status
+ * 批量更新SKU的激活状态
  */
-export async function getProductStatistics(): Promise<ProductStatisticsData> {
-  await delay(500)
-  
-  // Mock 数据
-  return {
-    totalProducts: 256,
-    onSaleProducts: 198,
-    offSaleProducts: 58,
-    lowStockProducts: 15,
-    totalCategories: 25,
-    todayViews: 3680,
-    monthViews: 125800,
-    categorySales: [
-      { categoryId: 1, categoryName: 'ThinkPad系列', salesCount: 580, salesAmount: 7540000 },
-      { categoryId: 2, categoryName: '拯救者系列', salesCount: 420, salesAmount: 5880000 },
-      { categoryId: 3, categoryName: 'YOGA系列', salesCount: 350, salesAmount: 3850000 },
-      { categoryId: 4, categoryName: 'ThinkBook系列', salesCount: 280, salesAmount: 2520000 },
-      { categoryId: 5, categoryName: '小新系列', salesCount: 450, salesAmount: 2700000 }
-    ],
-    hotProducts: [
-      { id: 1, name: 'ThinkPad X1 Carbon 2024', mainImage: 'https://picsum.photos/100/100?random=1', salesCount: 156, salesAmount: 2027400 },
-      { id: 2, name: '拯救者 Y9000P 2024', mainImage: 'https://picsum.photos/100/100?random=2', salesCount: 142, salesAmount: 1704000 },
-      { id: 3, name: 'YOGA Pro 14s', mainImage: 'https://picsum.photos/100/100?random=3', salesCount: 128, salesAmount: 1152000 },
-      { id: 4, name: '小新 Pro 16 2024', mainImage: 'https://picsum.photos/100/100?random=4', salesCount: 115, salesAmount: 690000 },
-      { id: 5, name: 'ThinkBook 14+ 2024', mainImage: 'https://picsum.photos/100/100?random=5', salesCount: 98, salesAmount: 588000 }
-    ]
+export async function batchUpdateSkuStatus(ids: number[], isActive: number): Promise<void> {
+  const requestBody = {
+    ids,
+    is_active: isActive,
   }
-  
-  // 真实API调用
-  // return get<ProductStatisticsData>('/api/admin/products/statistics')
+
+  return put<void>(
+    `${SKU_BASE}/batch-status`,
+    requestBody as unknown as Record<string, unknown>,
+  )
+}
+
+/**
+ * 批量保存 SKU（新增或更新）
+ * 根据 SKU 是否有 id 来判断是新增还是更新
+ * @param productId 商品ID
+ * @param skus SKU 列表
+ * @param existingSkuIds 原有的 SKU ID 列表（用于判断是否需要删除）
+ */
+export async function batchSaveSkus(
+  productId: number,
+  skus: {
+    id?: number
+    cpu: string
+    ram: string
+    storage: string
+    gpu: string
+    stock: number
+    price: number
+    os?: string
+    vramCapacity?: string
+  }[],
+  existingSkuIds: number[] = [],
+): Promise<void> {
+  // 收集当前提交的所有带 id 的 SKU
+  const currentIds = skus.filter(s => s.id).map(s => s.id as number)
+
+  // 找出需要删除的 SKU（在原有列表中但不在当前列表中）
+  const idsToDelete = existingSkuIds.filter(id => !currentIds.includes(id))
+
+  // 删除需要删除的 SKU
+  for (const id of idsToDelete) {
+    try {
+      await deleteSku(id)
+      console.log(`✅ 已删除 SKU: ${id}`)
+    } catch (error) {
+      console.error(`❌ 删除 SKU ${id} 失败:`, error)
+    }
+  }
+
+  // 新增或更新 SKU
+  for (const sku of skus) {
+    const skuData: SkuCreateRequest = {
+      product_id: productId,
+      price: sku.price,
+      stock: sku.stock,
+      os: sku.os || '',
+      cpu: sku.cpu || '',
+      ram: sku.ram || '',
+      storage: sku.storage || '',
+      gpu: sku.gpu || '',
+      vram_capacity: sku.vramCapacity || '',
+      is_active: 1,
+    }
+
+    try {
+      if (sku.id) {
+        // 更新已有 SKU
+        await updateSku(sku.id, skuData as SkuUpdateRequest)
+        console.log(`✅ 已更新 SKU: ${sku.id}`)
+      } else {
+        // 新增 SKU
+        const result = await addSku(skuData)
+        console.log(`✅ 已新增 SKU: ${result.id}`)
+      }
+    } catch (error) {
+      console.error(`❌ 保存 SKU 失败:`, sku, error)
+      throw error
+    }
+  }
 }

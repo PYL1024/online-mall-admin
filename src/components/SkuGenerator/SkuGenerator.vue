@@ -27,8 +27,6 @@ interface SkuCombination {
   ram: string
   storage: string
   gpu: string
-  os: string
-  vramCapacity: string
   stock: number
   price: number
 }
@@ -38,7 +36,6 @@ interface SkuSpec {
   rams: string[]
   storages: string[]
   gpus: string[]
-  vramCapacities: string[]
   combinations: SkuCombination[]
 }
 
@@ -55,7 +52,6 @@ const props = withDefaults(defineProps<Props>(), {
     rams: [],
     storages: [],
     gpus: [],
-    vramCapacities: [],
     combinations: [],
   }),
   disabled: false,
@@ -72,13 +68,11 @@ const cpus = ref<string[]>([])
 const rams = ref<string[]>([])
 const storages = ref<string[]>([])
 const gpus = ref<string[]>([])
-const vramCapacities = ref<string[]>([])
 
 const newCpu = ref('')
 const newRam = ref('')
 const newStorage = ref('')
 const newGpu = ref('')
-const newVramCapacity = ref('')
 
 const skuTable = ref<SkuCombination[]>([])
 
@@ -89,8 +83,7 @@ const batchPrice = ref<number | undefined>(undefined)
 
 const canGenerate = computed(() => {
   return cpus.value.length > 0 ||
-         rams.value.length > 0 || storages.value.length > 0 || gpus.value.length > 0 ||
-         vramCapacities.value.length > 0
+         rams.value.length > 0 || storages.value.length > 0 || gpus.value.length > 0
 })
 
 const expectedCombinations = computed(() => {
@@ -98,8 +91,7 @@ const expectedCombinations = computed(() => {
   const r = rams.value.length || 1
   const s = storages.value.length || 1
   const g = gpus.value.length || 1
-  const vc = vramCapacities.value.length || 1
-  return c * r * s * g * vc
+  return c * r * s * g
 })
 
 const specSummary = computed(() => {
@@ -108,7 +100,6 @@ const specSummary = computed(() => {
   if (rams.value.length > 0) parts.push(`${rams.value.length} 种内存`)
   if (storages.value.length > 0) parts.push(`${storages.value.length} 种存储`)
   if (gpus.value.length > 0) parts.push(`${gpus.value.length} 种显卡`)
-  if (vramCapacities.value.length > 0) parts.push(`${vramCapacities.value.length} 种显存容量`)
   return parts.join(' × ')
 })
 
@@ -122,7 +113,6 @@ watch(
       rams.value = [...(newVal.rams || [])]
       storages.value = [...(newVal.storages || [])]
       gpus.value = [...(newVal.gpus || [])]
-      vramCapacities.value = [...(newVal.vramCapacities || [])]
       skuTable.value = [...(newVal.combinations || [])]
     }
   },
@@ -188,14 +178,6 @@ function removeGpu(index: number) {
   removeSpec(gpus.value, index, 'gpu')
 }
 
-// 显存容量
-function addVramCapacity() {
-  if (addSpec(vramCapacities.value, newVramCapacity.value, '显存容量')) newVramCapacity.value = ''
-}
-function removeVramCapacity(index: number) {
-  removeSpec(vramCapacities.value, index, 'vramCapacity')
-}
-
 // ==================== SKU 组合生成 ====================
 
 function generateCombinations() {
@@ -206,7 +188,7 @@ function generateCombinations() {
 
   const existingData = new Map<string, { stock: number; price: number }>()
   skuTable.value.forEach(item => {
-    const key = `${item.cpu}_${item.ram}_${item.storage}_${item.gpu}_${item.vramCapacity}`
+    const key = `${item.cpu}_${item.ram}_${item.storage}_${item.gpu}`
     existingData.set(key, { stock: item.stock, price: item.price })
   })
 
@@ -215,26 +197,21 @@ function generateCombinations() {
   const ramList = rams.value.length > 0 ? rams.value : ['']
   const storageList = storages.value.length > 0 ? storages.value : ['']
   const gpuList = gpus.value.length > 0 ? gpus.value : ['']
-  const vramCapacityList = vramCapacities.value.length > 0 ? vramCapacities.value : ['']
 
   for (const cpu of cpuList) {
     for (const ram of ramList) {
       for (const storage of storageList) {
         for (const gpu of gpuList) {
-          for (const vramCapacity of vramCapacityList) {
-            const key = `${cpu}_${ram}_${storage}_${gpu}_${vramCapacity}`
-            const existing = existingData.get(key)
-            newCombinations.push({
-              cpu,
-              ram,
-              storage,
-              gpu,
-              os: '', // 保存时自动填充
-              vramCapacity,
-              stock: existing?.stock ?? 0,
-              price: existing?.price ?? 0,
-            })
-          }
+          const key = `${cpu}_${ram}_${storage}_${gpu}`
+          const existing = existingData.get(key)
+          newCombinations.push({
+            cpu,
+            ram,
+            storage,
+            gpu,
+            stock: existing?.stock ?? 0,
+            price: existing?.price ?? 0,
+          })
         }
       }
     }
@@ -292,7 +269,6 @@ function emitUpdate() {
     rams: [...rams.value],
     storages: [...storages.value],
     gpus: [...gpus.value],
-    vramCapacities: [...vramCapacities.value],
     combinations: [...skuTable.value],
   }
   emit('update:modelValue', data)
@@ -423,36 +399,6 @@ function emitUpdate() {
           </div>
         </div>
       </ElCard>
-
-      <!-- 显存容量配置 -->
-      <ElCard class="spec-card" shadow="never">
-        <template #header>
-          <div class="card-header">
-            <span class="title">显存容量</span>
-            <span class="count">已添加 {{ vramCapacities.length }} 个</span>
-          </div>
-        </template>
-        <div class="spec-content">
-          <div class="tag-list">
-            <ElTag
-              v-for="(vram, index) in vramCapacities"
-              :key="vram"
-              type="success"
-              closable
-              :disabled="disabled"
-              @close="removeVramCapacity(index)"
-            >{{ vram }}</ElTag>
-            <span v-if="vramCapacities.length === 0" class="empty-tip">暂未添加显存容量</span>
-          </div>
-          <div v-if="!disabled" class="add-input">
-            <ElInput v-model="newVramCapacity" placeholder="如：8GB、12GB" size="small" @keyup.enter="addVramCapacity">
-              <template #append>
-                <ElButton @click="addVramCapacity"><ElIcon><Plus /></ElIcon>添加</ElButton>
-              </template>
-            </ElInput>
-          </div>
-        </div>
-      </ElCard>
     </div>
 
     <!-- 生成按钮区域 -->
@@ -519,13 +465,6 @@ function emitUpdate() {
         <ElTableColumn v-if="gpus.length > 0" prop="gpu" label="显卡" width="120" align="center">
           <template #default="{ row }">
             <ElTag v-if="row.gpu" type="danger">{{ row.gpu }}</ElTag>
-            <span v-else>-</span>
-          </template>
-        </ElTableColumn>
-
-        <ElTableColumn v-if="vramCapacities.length > 0" prop="vramCapacity" label="显存容量" width="100" align="center">
-          <template #default="{ row }">
-            <ElTag v-if="row.vramCapacity" type="success">{{ row.vramCapacity }}</ElTag>
             <span v-else>-</span>
           </template>
         </ElTableColumn>

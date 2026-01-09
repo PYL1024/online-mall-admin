@@ -3,7 +3,7 @@
  * 包含：优惠券、轮播图等营销相关接口
  */
 
-import { get, post, del } from '@/utils/request'
+import { get, post, put, del } from '@/utils/request'
 
 // ==================== 轮播图 API ====================
 
@@ -110,26 +110,26 @@ export interface CouponParams {
 
 /**
  * 获取优惠券列表
- * API: GET /api/marketing/coupon
+ * API: GET /api/admin/marketing/coupon
  */
 export async function getCouponList(params?: CouponListParams): Promise<CouponListResult> {
-  return get<CouponListResult>('/api/marketing/coupon', params as unknown as Record<string, unknown>)
+  return get<CouponListResult>('/api/admin/marketing/coupon', params as unknown as Record<string, unknown>)
 }
 
 /**
  * 获取优惠券详情
- * API: GET /api/marketing/coupon/{id}
+ * API: GET /api/admin/marketing/coupon/{id}
  */
 export async function getCouponDetail(id: number): Promise<Coupon> {
-  return get<Coupon>(`/api/marketing/coupon/${id}`)
+  return get<Coupon>(`/api/admin/marketing/coupon/${id}`)
 }
 
 /**
  * 新增优惠券
- * API: POST /api/marketing/coupon
+ * API: POST /api/admin/marketing/coupon
  */
 export async function addCoupon(data: CouponParams): Promise<{ id: number }> {
-  return post<{ id: number }>('/api/marketing/coupon', data as unknown as Record<string, unknown>)
+  return post<{ id: number }>('/api/admin/marketing/coupon', data as unknown as Record<string, unknown>)
 }
 
 /**
@@ -138,7 +138,7 @@ export async function addCoupon(data: CouponParams): Promise<{ id: number }> {
  * 注意：如果后端使用 PUT 方法，需要在 request.ts 中导入 put
  */
 export async function updateCoupon(id: number, data: CouponParams): Promise<void> {
-  return post<void>(`/api/marketing/coupon/${id}`, data as unknown as Record<string, unknown>)
+  return put<void>(`/api/admin/marketing/coupon/${id}`, data as unknown as Record<string, unknown>)
 }
 
 /**
@@ -146,7 +146,7 @@ export async function updateCoupon(id: number, data: CouponParams): Promise<void
  * API: DELETE /api/marketing/coupon/{id}
  */
 export async function deleteCoupon(id: number): Promise<void> {
-  return del<void>(`/api/marketing/coupon/${id}`)
+  return del<void>(`/api/admin/marketing/coupon/${id}`)
 }
 
 /**
@@ -154,7 +154,7 @@ export async function deleteCoupon(id: number): Promise<void> {
  * API: DELETE /api/marketing/coupon/batch
  */
 export async function batchDeleteCoupon(ids: number[]): Promise<void> {
-  return post<void>('/api/marketing/coupon/batch-delete', { ids })
+  return post<void>('/api/admin/marketing/coupon/batch-delete', { ids })
 }
 
 /**
@@ -162,5 +162,103 @@ export async function batchDeleteCoupon(ids: number[]): Promise<void> {
  * API: PATCH /api/marketing/coupon/{id}/status
  */
 export async function updateCouponStatus(id: number, status: number): Promise<void> {
-  return post<void>(`/api/marketing/coupon/${id}/status`, { status })
+  return post<void>(`/api/admin/marketing/coupon/${id}`, { status })
+}
+
+// ==================== 公告 API ====================
+
+/**
+ * 公告类型
+ * type: 1-系统公告, 2-活动公告, 3-维护公告
+ */
+export interface Notice {
+  id: number
+  title: string        // 公告标题
+  content: string      // 公告内容
+  type: 1 | 2 | 3      // 1-系统公告, 2-活动公告, 3-维护公告
+  sortOrder: number    // 排序
+  isActive: number     // 状态：1-上线，0-下线
+  createTime: string   // 创建时间
+  updateTime: string   // 更新时间
+}
+
+/**
+ * 公告列表查询参数
+ */
+export interface NoticeListParams {
+  page?: number
+  pageSize?: number
+  title?: string       // 按标题搜索
+  type?: 1 | 2 | 3     // 按类型筛选
+  isActive?: number    // 按状态筛选
+}
+
+/**
+ * 公告列表响应
+ */
+export interface NoticeListResult {
+  list: Notice[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+/**
+ * 新增/编辑公告参数
+ */
+export interface NoticeParams {
+  id?: number          // 编辑时需要传入
+  title: string
+  content: string
+  type: 1 | 2 | 3
+  sortOrder?: number
+  isActive?: number
+}
+
+/**
+ * 获取公告列表
+ * API: GET /api/admin/marketing/notice
+ */
+export async function getNoticeList(params?: NoticeListParams): Promise<NoticeListResult> {
+  return get<NoticeListResult>('/api/admin/marketing/notice', params as unknown as Record<string, unknown>)
+}
+
+/**
+ * 获取公告详情
+ * API: GET /api/admin/marketing/notice/{id}
+ */
+export async function getNoticeDetail(id: number): Promise<Notice> {
+  return get<Notice>(`/api/admin/marketing/notice/${id}`)
+}
+
+/**
+ * 新增公告
+ * API: POST /api/admin/marketing/notice
+ */
+export async function addNotice(data: NoticeParams): Promise<{ id: number }> {
+  return post<{ id: number }>('/api/admin/marketing/notice', data as unknown as Record<string, unknown>)
+}
+
+/**
+ * 更新公告
+ * API: PUT /api/admin/marketing/notice/{id}
+ */
+export async function updateNotice(id: number, data: NoticeParams): Promise<void> {
+  return put<void>(`/api/admin/marketing/notice/${id}`, data as unknown as Record<string, unknown>)
+}
+
+/**
+ * 删除公告
+ * API: DELETE /api/admin/marketing/notice/{id}
+ */
+export async function deleteNotice(id: number): Promise<void> {
+  return del<void>(`/api/admin/marketing/notice/${id}`)
+}
+
+/**
+ * 更新公告状态（上线/下线）
+ * API: PATCH /api/marketing/notice/{id}/status
+ */
+export async function updateNoticeStatus(id: number, isActive: number): Promise<void> {
+  return post<void>(`/api/marketing/notice/${id}/status`, { isActive })
 }

@@ -11,6 +11,7 @@ import {
   ElForm,
   ElFormItem,
   ElInput,
+  ElInputNumber,
   ElSelect,
   ElOption,
   ElRadioGroup,
@@ -29,7 +30,6 @@ import {
   getProductDetail,
   addProduct,
   updateProduct,
-  batchSaveSkus,
 } from '@/api/product'
 import type { Category, ProductForm, SkuSpec } from '@/api/model/product'
 import MultiImageUpload from '@/components/MultiImageUpload/MultiImageUpload.vue'
@@ -78,9 +78,6 @@ const formRef = ref<FormInstance>()
 // 当前 Tab
 const activeTab = ref('basic')
 
-// 原有 SKU ID 列表（用于判断删除）
-const existingSkuIds = ref<number[]>([])
-
 // 表单数据
 const formData = reactive<ProductForm>({
   name: '',
@@ -98,7 +95,6 @@ const formData = reactive<ProductForm>({
     rams: [],
     storages: [],
     gpus: [],
-    vramCapacities: [],
     combinations: [],
   },
   params: {},
@@ -188,9 +184,44 @@ const formRules: FormRules = {
   mainImage: [
     { required: true, message: '请上传商品主图', trigger: 'change' },
   ],
+  price: [
+    { required: true, message: '请输入商品价格', trigger: 'blur' },
+  ],
+  stock: [
+    { required: true, message: '请输入商品库存', trigger: 'blur' },
+  ],
 }
 
-// ==================== 生命周期 ========================================================
+// ==================== 计算属性 ====================
+
+// 是否启用 SKU
+const enableSku = computed(() => {
+  return (
+    formData.skuSpec &&
+    formData.skuSpec.combinations &&
+    formData.skuSpec.combinations.length > 0
+  )
+})
+
+// SKU 总库存
+const skuTotalStock = computed(() => {
+  if (!enableSku.value || !formData.skuSpec) return 0
+  return formData.skuSpec.combinations.reduce((sum, item) => sum + item.stock, 0)
+})
+
+// SKU 价格范围
+const skuPriceRange = computed(() => {
+  if (!enableSku.value || !formData.skuSpec || formData.skuSpec.combinations.length === 0) {
+    return null
+  }
+  const prices = formData.skuSpec.combinations.map((c) => c.price).filter((p) => p > 0)
+  if (prices.length === 0) return null
+  const min = Math.min(...prices)
+  const max = Math.max(...prices)
+  return { min, max }
+})
+
+// ==================== 生命周期 ====================
 
 onMounted(async () => {
   await loadCategories()
@@ -238,7 +269,6 @@ async function loadProductDetail(id: number) {
 
       formData.mainImage = product.mainImage
       formData.images = product.images || []
-      formData.detailImages = product.detailImages || [] // 加载图文详情图片
       formData.price = product.price
       formData.originalPrice = product.originalPrice
       formData.stock = product.stock
@@ -249,13 +279,9 @@ async function loadProductDetail(id: number) {
         rams: [],
         storages: [],
         gpus: [],
-        vramCapacities: [],
         combinations: [],
       }
-      // 保存原有 SKU ID 列表
-      existingSkuIds.value = product.skuSpec?.combinations
-        ?.filter(c => c.id)
-        .map(c => c.id as number) || []
+      // @ts-ignore
       formData.params = product.params
     } else {
       ElMessage.error('商品不存在')
@@ -333,6 +359,12 @@ async function handleSave() {
   if (!formData.mainImage) {
     missingFields.push('商品主图')
   }
+  if (formData.price === undefined || formData.price === null) {
+    missingFields.push('销售价格')
+  }
+  if (formData.stock === undefined || formData.stock === null) {
+    missingFields.push('商品库存')
+  }
 
   if (missingFields.length > 0) {
     ElMessage.warning(`请填写以下必填信息：${missingFields.join('、')}`)
@@ -355,51 +387,13 @@ async function handleSave() {
     submitting.value = true
 
     try {
-      let productId: number
-
       if (mode.value === 'add') {
-        const result = await addProduct(formData)
-        productId = result.id
+        await addProduct(formData)
         ElMessage.success('商品添加成功')
       } else {
         await updateProduct(formData)
-        productId = formData.id as number
         ElMessage.success('商品更新成功')
       }
-
-      // 保存 SKU 数据（通过真实 API 接口）
-      if (formData.skuSpec?.combinations && formData.skuSpec.combinations.length > 0) {
-        try {
-          await batchSaveSkus(
-            productId,
-            formData.skuSpec.combinations.map(c => ({
-              id: c.id,
-              cpu: c.cpu,
-              ram: c.ram,
-              storage: c.storage,
-              gpu: c.gpu,
-              stock: c.stock,
-              price: c.price,
-              os: 'Windows 11 家庭中文版', // 自动填充
-              vramCapacity: c.vramCapacity || '',
-            })),
-            existingSkuIds.value,
-          )
-          console.log('✅ SKU 数据保存成功')
-        } catch (skuError) {
-          console.error('❌ SKU 保存失败:', skuError)
-          ElMessage.warning('商品保存成功，但部分SKU保存失败')
-        }
-      } else if (existingSkuIds.value.length > 0) {
-        // 如果原来有 SKU 但现在没有了，删除所有原有 SKU
-        try {
-          await batchSaveSkus(productId, [], existingSkuIds.value)
-          console.log('✅ 已清除所有 SKU')
-        } catch (skuError) {
-          console.error('❌ 清除 SKU 失败:', skuError)
-        }
-      }
-
       router.push('/product/list')
     } catch (error) {
       console.error('保存失败:', error)
@@ -435,7 +429,6 @@ async function handleReset() {
         rams: [],
         storages: [],
         gpus: [],
-        vramCapacities: [],
         combinations: [],
       }
     }
@@ -505,18 +498,68 @@ async function handleReset() {
               </ElSelect>
             </ElFormItem>
 
-            <ElDivider content-position="left">商品描述</ElDivider>
+            <ElDivider content-position="left">价格库存</ElDivider>
 
-            <ElFormItem label="商品描述">
-              <ElInput
-                v-model="formData.description"
-                type="textarea"
-                :rows="4"
-                placeholder="请输入商品描述"
-                maxlength="500"
-                show-word-limit
-                style="max-width: 600px"
+            <ElFormItem label="销售价格" prop="price">
+              <ElInputNumber
+                v-model="formData.price"
+                :min="0"
+                :precision="2"
+                :step="10"
+                placeholder="请输入价格"
+                controls-position="right"
+                style="width: 200px"
               />
+              <span class="form-tip">元</span>
+
+              <template v-if="skuPriceRange">
+                <ElAlert
+                  type="info"
+                  :closable="false"
+                  show-icon
+                  style="margin-left: 16px; display: inline-flex"
+                >
+                  SKU价格范围: ¥{{ skuPriceRange.min.toFixed(2) }} ~ ¥{{
+                    skuPriceRange.max.toFixed(2)
+                  }}
+                </ElAlert>
+              </template>
+            </ElFormItem>
+
+            <ElFormItem label="原价">
+              <ElInputNumber
+                v-model="formData.originalPrice"
+                :min="0"
+                :precision="2"
+                :step="10"
+                placeholder="划线价（可选）"
+                controls-position="right"
+                style="width: 200px"
+              />
+              <span class="form-tip">元（用于显示优惠力度）</span>
+            </ElFormItem>
+
+            <ElFormItem label="商品库存" prop="stock">
+              <ElInputNumber
+                v-model="formData.stock"
+                :min="0"
+                :step="10"
+                placeholder="请输入库存"
+                controls-position="right"
+                style="width: 200px"
+              />
+              <span class="form-tip">件</span>
+
+              <template v-if="enableSku">
+                <ElAlert
+                  type="info"
+                  :closable="false"
+                  show-icon
+                  style="margin-left: 16px; display: inline-flex"
+                >
+                  SKU总库存: {{ skuTotalStock }} 件
+                </ElAlert>
+              </template>
             </ElFormItem>
 
             <ElDivider content-position="left">商品状态</ElDivider>

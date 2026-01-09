@@ -2,7 +2,7 @@
 /**
  * 多图上传组件
  * 支持批量上传、拖拽排序、图片预览和删除
- * 注意：图片不单独上传，使用本地Blob URL预览，保存商品时一起提交
+ * 支持直接输入图片URL或上传本地文件（转Base64）
  */
 import { ref, computed, watch } from 'vue'
 import {
@@ -12,8 +12,10 @@ import {
   ElImage,
   ElMessage,
   ElIcon,
+  ElInput,
+  ElPopover,
 } from 'element-plus'
-import { Plus, Delete, ZoomIn, Rank } from '@element-plus/icons-vue'
+import { Plus, Delete, ZoomIn, Rank, Link } from '@element-plus/icons-vue'
 import type { UploadFile, UploadProps } from 'element-plus'
 
 // ==================== Props & Emits ====================
@@ -23,6 +25,7 @@ interface Props {
   maxCount?: number // 最大上传数量
   accept?: string // 接受的文件类型
   disabled?: boolean
+  allowUrl?: boolean // 是否允许直接输入URL
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -30,6 +33,7 @@ const props = withDefaults(defineProps<Props>(), {
   maxCount: 5,
   accept: 'image/jpeg,image/png,image/gif,image/webp',
   disabled: false,
+  allowUrl: true,
 })
 
 const emit = defineEmits<{
@@ -50,6 +54,10 @@ const previewIndex = ref(0)
 // 拖拽状态
 const dragIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
+
+// URL输入状态
+const urlInputVisible = ref(false)
+const urlInputValue = ref('')
 
 // ==================== 计算属性 ====================
 
@@ -130,6 +138,67 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+/**
+ * 验证URL是否为有效的图片URL
+ */
+function isValidImageUrl(url: string): boolean {
+  if (!url) return false
+  // 支持 http/https URL 和 data URL (Base64)
+  return /^(https?:\/\/|data:image\/)/.test(url)
+}
+
+/**
+ * 通过URL添加图片
+ */
+function handleAddByUrl() {
+  const url = urlInputValue.value.trim()
+
+  if (!url) {
+    ElMessage.warning('请输入图片URL')
+    return
+  }
+
+  if (!isValidImageUrl(url)) {
+    ElMessage.error('请输入有效的图片URL（http:// 或 https:// 开头）')
+    return
+  }
+
+  if (fileList.value.length >= props.maxCount) {
+    ElMessage.error(`最多只能上传 ${props.maxCount} 张图片`)
+    return
+  }
+
+  // 检查是否已存在
+  if (fileList.value.some(f => f.url === url)) {
+    ElMessage.warning('该图片已存在')
+    return
+  }
+
+  // 添加到文件列表
+  fileList.value.push({
+    uid: Date.now(),
+    name: `url-image-${fileList.value.length}`,
+    url,
+    status: 'success',
+  } as UploadFile)
+
+  // 清空输入并关闭弹窗
+  urlInputValue.value = ''
+  urlInputVisible.value = false
+
+  // 触发更新
+  emitUpdate()
+  ElMessage.success('图片添加成功')
+}
+
+/**
+ * 取消URL输入
+ */
+function handleCancelUrlInput() {
+  urlInputValue.value = ''
+  urlInputVisible.value = false
 }
 
 /**
@@ -337,10 +406,39 @@ function handleDragEnd() {
           </div>
         </ElUpload>
       </div>
+
+      <!-- URL输入按钮 -->
+      <div v-if="canUpload && allowUrl" class="url-trigger">
+        <ElPopover
+          v-model:visible="urlInputVisible"
+          placement="bottom"
+          :width="320"
+          trigger="click"
+        >
+          <template #reference>
+            <div class="url-box">
+              <ElIcon class="url-icon"><Link /></ElIcon>
+              <span class="url-text">输入URL</span>
+            </div>
+          </template>
+          <div class="url-input-form">
+            <ElInput
+              v-model="urlInputValue"
+              placeholder="请输入图片URL地址"
+              clearable
+              @keyup.enter="handleAddByUrl"
+            />
+            <div class="url-input-actions">
+              <ElButton size="small" @click="handleCancelUrlInput">取消</ElButton>
+              <ElButton size="small" type="primary" @click="handleAddByUrl">添加</ElButton>
+            </div>
+          </div>
+        </ElPopover>
+      </div>
     </div>
 
     <!-- 提示文字 -->
-    <div class="upload-tip">{{ uploadTip }}</div>
+    <div class="upload-tip">{{ uploadTip }}，支持上传图片或输入图片URL</div>
 
     <!-- 大图预览弹窗 -->
     <ElDialog
@@ -524,6 +622,54 @@ function handleDragEnd() {
       font-size: 12px;
       color: #909399;
     }
+  }
+}
+
+.url-trigger {
+  width: 120px;
+  height: 120px;
+
+  .url-box {
+    width: 100%;
+    height: 100%;
+    border: 1px dashed #67c23a;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #f0f9eb;
+
+    &:hover {
+      border-color: #67c23a;
+      background: #e1f3d8;
+
+      .url-icon {
+        color: #67c23a;
+      }
+    }
+
+    .url-icon {
+      font-size: 28px;
+      color: #67c23a;
+      margin-bottom: 8px;
+    }
+
+    .url-text {
+      font-size: 12px;
+      color: #67c23a;
+    }
+  }
+}
+
+.url-input-form {
+  .url-input-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
   }
 }
 

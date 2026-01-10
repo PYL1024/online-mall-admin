@@ -125,212 +125,28 @@ export async function getAdminOrderList(params?: GetAdminOrderListParams): Promi
  * @returns 更新结果
  */
 export async function updateAdminOrderStatus(orderSn: string, params: UpdateAdminOrderStatusRequest): Promise<BaseResponse<null>> {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`/api/admin/orders/${orderSn}/status`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-       'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({
-      action: params.action,
-      shippingInfo: params.shippingInfo,
-      reason: params.reason
-    })
-  });
-
-  if (!response.ok) {
-    // 根据不同的HTTP状态码抛出相应的错误
-    const errorResponse = await response.text();
-    let errorMessage = `HTTP error! status: ${response.status}`;
-    
-    try {
-      const errorObj = JSON.parse(errorResponse);
-      errorMessage = errorObj.message || errorMessage;
-    } catch (e) {
-      // 如果无法解析错误响应，则使用默认错误消息
-    }
-    
-    throw new Error(errorMessage);
-  }
-
-  const result: BaseResponse<null> = await response.json();
-  return result;
-}
-
-// 使用示例
-/*
-// 获取管理员订单列表示例
-const getAdminOrderListExample = async () => {
-  try {
-    const params: GetAdminOrderListParams = {
-      page: 1,
-      pageSize: 20,
-      status: 1,
-      phone: '13800138000'
-    };
-    
-    const result = await getAdminOrderList(params);
-    console.log('获取管理员订单列表成功:', result);
-    console.log('总记录数:', result.data.total);
-    console.log('当前页码:', result.data.page);
-    console.log('每页数量:', result.data.pageSize);
-    console.log('订单列表:', result.data.orders);
-  } catch (error) {
-    console.error('获取管理员订单列表失败:', error);
-  }
-};
-
-// 管理员更新订单状态示例
-const updateAdminOrderStatusExample = async () => {
-  try {
-    const orderSn = '100014'; // 示例订单号
-    const params: UpdateAdminOrderStatusRequest = {
-      action: AdminOrderAction.SHIP,
-      shippingInfo: {
-        shippingMethod: '顺丰快递',
-        trackingNumber: 'SF1234567890'
-      },
-      reason: '已安排发货'
-    };
-    
-    const result = await updateAdminOrderStatus(orderSn, params);
-    console.log('更新订单状态成功:', result);
-  } catch (error) {
-    console.error('更新订单状态失败:', error);
-  }
-};
-
-// 管理员完成订单示例
-const completeOrderExample = async () => {
-  try {
-    const orderSn = '100014'; // 示例订单号
-    const params: UpdateAdminOrderStatusRequest = {
-      action: AdminOrderAction.COMPLETE,
-      reason: '订单已完成'
-    };
-    
-    const result = await updateAdminOrderStatus(orderSn, params);
-    console.log('完成订单成功:', result);
-  } catch (error) {
-    console.error('完成订单失败:', error);
-  }
-};
-
-// 管理员处理退款示例
-const refundOrderExample = async () => {
-  try {
-    const orderSn = '100014'; // 示例订单号
-    const params: UpdateAdminOrderStatusRequest = {
-      action: AdminOrderAction.REFUND,
-      reason: '商品质量问题，同意退款'
-    };
-    
-    const result = await updateAdminOrderStatus(orderSn, params);
-    console.log('退款处理成功:', result);
-  } catch (error) {
-    console.error('退款处理失败:', error);
-  }
-};
-*/
-
-// ==================== 订单统计 API ====================
-
-/**
- * 订单状态分布数据结构
- */
-export interface OrderStatusDistribution {
-  pending: number        // 待付款
-  paid: number           // 待发货
-  shipped: number        // 待收货
-  completed: number      // 已完成
-  cancelled: number      // 已取消
-  refunding: number      // 退款中
+  await patch<null>(`/api/admin/orders/${orderSn}/status`, {
+    action: params.action,
+    shippingInfo: params.shippingInfo,
+    reason: params.reason,
+  } as unknown as Record<string, unknown>);
+  return {
+    status: 200,
+    message: 'success',
+    data: null,
+  };
 }
 
 /**
- * 订单趋势数据（近7天）
+ * 获取订单详情API
+ * @param orderSn - 订单号
+ * @returns 订单详情
  */
-export interface OrderTrendItem {
-  date: string           // 日期 YYYY-MM-DD
-  orderCount: number     // 订单数
-  orderAmount: number    // 订单金额
+export async function getOrderDetail(orderSn: number | string): Promise<BaseResponse<OrderDetailData>> {
+  const data = await get<OrderDetailData>(`/api/admin/orders/${orderSn}`);
+  return {
+    status: 200,
+    message: 'success',
+    data,
+  };
 }
-
-/**
- * 订单统计数据结构
- */
-export interface OrderStatisticsData {
-  totalOrders: number           // 订单总数
-  todayOrders: number           // 今日订单
-  monthOrders: number           // 本月订单
-  totalAmount: number           // 累计销售额
-  todayAmount: number           // 今日销售额
-  monthAmount: number           // 本月销售额
-  pendingShipment: number       // 待发货订单
-  refundingOrders: number       // 退款中订单
-  statusDistribution: OrderStatusDistribution  // 订单状态分布
-  weeklyTrend: OrderTrendItem[] // 近7天趋势
-}
-
-// 模拟开关
-const USE_ORDER_MOCK = true
-
-/**
- * 获取订单统计数据
- * API: GET /api/admin/orders/statistics
- */
-export function getOrderStatistics(): Promise<OrderStatisticsData> {
-  if (USE_ORDER_MOCK) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // 生成近7天的日期
-        const weeklyTrend: OrderTrendItem[] = []
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date()
-          date.setDate(date.getDate() - i)
-          weeklyTrend.push({
-            date: date.toISOString().split('T')[0] ?? '',
-            orderCount: Math.floor(Math.random() * 50) + 20,
-            orderAmount: Math.floor(Math.random() * 50000) + 10000
-          })
-        }
-        
-        resolve({
-          totalOrders: 12580,
-          todayOrders: 86,
-          monthOrders: 1560,
-          totalAmount: 2568900,
-          todayAmount: 35680,
-          monthAmount: 458900,
-          pendingShipment: 45,
-          refundingOrders: 12,
-          statusDistribution: {
-            pending: 120,
-            paid: 45,
-            shipped: 230,
-            completed: 11800,
-            cancelled: 350,
-            refunding: 35
-          },
-          weeklyTrend
-        })
-      }, 500)
-    })
-  }
-  // 真实API调用
-  // return get<OrderStatisticsData>('/api/admin/orders/statistics')
-  return Promise.reject('API not implemented')
-}
-
-
-
-
-
-
-
-
-
-
-
-

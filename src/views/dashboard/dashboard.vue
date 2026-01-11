@@ -516,686 +516,320 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="dashboard-container">
-    <div class="header-section">
-      <div class="title-group">
-        <div class="title-decorator"></div>
-        <div>
-          <h2 class="main-title">
-            <span class="title-icon">📊</span>
-            数据看板
-          </h2>
+  <div class="dashboard-page">
+    <el-card shadow="never" class="main-card">
+      <div class="header">
+        <div class="title-area">
+          <h2 class="title">数据看板</h2>
           <span class="sub-title">实时监控 · 数据驱动决策</span>
         </div>
+        <div class="header-info">
+          <span class="info-item">
+            <el-icon><Timer /></el-icon>
+            {{ new Date().toLocaleDateString() }}
+          </span>
+          <span class="info-item warning">
+            <el-icon><WarningFilled /></el-icon>
+            封禁用户: {{ disabledCount }}
+          </span>
+        </div>
       </div>
-      <div class="header-extras">
-        <div class="date-badge">
-          <el-icon><Timer /></el-icon>
-          <span>{{ new Date().toLocaleDateString() }}</span>
-        </div>
-        <div class="disabled-badge">
-          <el-icon><WarningFilled /></el-icon>
-          <span>封禁用户: {{ disabledCount }}</span>
-        </div>
-      </div>
-    </div>
 
-    <!-- Tab 切换 -->
-    <el-tabs v-model="activeTab" class="dashboard-tabs" @tab-change="handleTabChange">
-      <el-tab-pane label="总览" name="overview">
-        <!-- 销售额统计 -->
-        <div class="section-title">
-          <span class="section-icon">💰</span>
-          <span>销售概览</span>
-        </div>
-        <div class="stats-grid sales-grid">
-          <div 
-            v-for="(item, index) in salesStatsCards" 
-            :key="'sales-' + index" 
-            class="stat-card sales-card"
-            :style="{ animationDelay: `${index * 0.1}s` }"
-          >
-            <div class="stat-card-bg" :style="{ background: `linear-gradient(135deg, ${item.color}15, ${item.color}05)` }"></div>
-            <div class="stat-content">
-              <div class="stat-icon-wrapper" :style="{ 
-                background: `linear-gradient(135deg, ${item.color}, ${item.color}dd)`,
-                boxShadow: `0 4px 12px ${item.color}40`
-              }">
-                <el-icon :size="28"><component :is="item.icon" /></el-icon>
+      <!-- Tab 切换 -->
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+        <el-tab-pane label="总览" name="overview">
+          <!-- 销售额统计 -->
+          <div class="section-header">销售概览</div>
+          <div class="stats-row">
+            <div v-for="(item, index) in salesStatsCards" :key="'sales-' + index" class="stat-item">
+              <div class="stat-icon" :style="{ background: item.color }">
+                <el-icon :size="20"><component :is="item.icon" /></el-icon>
               </div>
               <div class="stat-info">
-                <div class="stat-title">{{ item.title }}</div>
-                <div class="stat-value" :style="{ color: item.color }">
-                  ¥{{ formatAmount(item.value) }}
-                </div>
+                <div class="stat-label">{{ item.title }}</div>
+                <div class="stat-value">¥{{ formatAmount(item.value) }}</div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 订单趋势图 -->
-        <div class="chart-card order-trend-card">
-          <div class="chart-header">
-            <h3>📈 近7天订单趋势</h3>
-            <span class="chart-badge">实时统计</span>
+          <!-- 订单趋势图 -->
+          <div class="chart-section">
+            <div class="chart-title">近7天订单趋势</div>
+            <div ref="orderTrendChartRef" class="chart-box"></div>
           </div>
-          <div ref="orderTrendChartRef" class="chart-box"></div>
-        </div>
-      </el-tab-pane>
+        </el-tab-pane>
 
-      <el-tab-pane label="用户数据" name="users">
-        <!-- 用户核心指标卡片 -->
-        <div class="section-title">
-          <span class="section-icon">👥</span>
-          <span>用户统计</span>
-        </div>
-        <div class="stats-grid">
-          <div 
-            v-for="(item, index) in userStatsCards" 
-            :key="'user-' + index" 
-            class="stat-card"
-            :style="{ animationDelay: `${index * 0.1}s` }"
-          >
-            <div class="stat-card-bg" :style="{ background: `linear-gradient(135deg, ${item.color}15, ${item.color}05)` }"></div>
-            <div class="stat-content">
-              <div class="stat-icon-wrapper" :style="{ 
-                background: `linear-gradient(135deg, ${item.color}, ${item.color}dd)`,
-                boxShadow: `0 4px 12px ${item.color}40`
-              }">
-                <el-icon :size="28"><component :is="item.icon" /></el-icon>
+        <el-tab-pane label="用户数据" name="users">
+          <!-- 用户核心指标卡片 -->
+          <div class="section-header">用户统计</div>
+          <div class="stats-row">
+            <div v-for="(item, index) in userStatsCards" :key="'user-' + index" class="stat-item">
+              <div class="stat-icon" :style="{ background: item.color }">
+                <el-icon :size="20"><component :is="item.icon" /></el-icon>
               </div>
               <div class="stat-info">
-                <div class="stat-title">{{ item.title }}</div>
-                <div class="stat-value" :style="{ color: item.color }">
-                  {{ item.value.toLocaleString() }}
-                </div>
-                <div v-if="item.isNew" class="stat-tag">
-                  <span class="pulse-dot"></span>
-                  Today
-                </div>
+                <div class="stat-label">{{ item.title }}</div>
+                <div class="stat-value">{{ item.value.toLocaleString() }}</div>
+                <el-tag v-if="item.isNew" size="small" type="danger">Today</el-tag>
               </div>
             </div>
-            <div class="stat-wave"></div>
           </div>
-        </div>
 
-        <!-- 用户图表区域 -->
-        <el-row :gutter="20" class="charts-row">
-          <el-col :span="14" :xs="24">
-            <div class="chart-card age-chart-card">
-              <div class="chart-header">
-                <h3>📊 年龄分布趋势</h3>
-                <span class="chart-badge">实时统计</span>
+          <!-- 用户图表区域 -->
+          <el-row :gutter="20">
+            <el-col :span="14" :xs="24">
+              <div class="chart-section">
+                <div class="chart-title">年龄分布</div>
+                <div ref="ageChartRef" class="chart-box"></div>
               </div>
-              <div ref="ageChartRef" class="chart-box"></div>
-            </div>
-          </el-col>
-          <el-col :span="10" :xs="24">
-            <div class="chart-card gender-chart-card">
-              <div class="chart-header">
-                <h3>👤 性别占比</h3>
-                <span class="chart-badge">用户画像</span>
+            </el-col>
+            <el-col :span="10" :xs="24">
+              <div class="chart-section">
+                <div class="chart-title">性别占比</div>
+                <div ref="genderChartRef" class="chart-box"></div>
               </div>
-              <div ref="genderChartRef" class="chart-box"></div>
-            </div>
-          </el-col>
-        </el-row>
-      </el-tab-pane>
+            </el-col>
+          </el-row>
+        </el-tab-pane>
 
-      <el-tab-pane label="订单数据" name="orders">
-        <!-- 订单统计卡片 -->
-        <div class="section-title">
-          <span class="section-icon">🛒</span>
-          <span>订单统计</span>
-        </div>
-        <div class="stats-grid">
-          <div 
-            v-for="(item, index) in orderStatsCards" 
-            :key="'order-' + index" 
-            class="stat-card"
-            :style="{ animationDelay: `${index * 0.1}s` }"
-          >
-            <div class="stat-card-bg" :style="{ background: `linear-gradient(135deg, ${item.color}15, ${item.color}05)` }"></div>
-            <div class="stat-content">
-              <div class="stat-icon-wrapper" :style="{ 
-                background: `linear-gradient(135deg, ${item.color}, ${item.color}dd)`,
-                boxShadow: `0 4px 12px ${item.color}40`
-              }">
-                <el-icon :size="28"><component :is="item.icon" /></el-icon>
+        <el-tab-pane label="订单数据" name="orders">
+          <!-- 订单统计卡片 -->
+          <div class="section-header">订单统计</div>
+          <div class="stats-row">
+            <div v-for="(item, index) in orderStatsCards" :key="'order-' + index" class="stat-item">
+              <div class="stat-icon" :style="{ background: item.color }">
+                <el-icon :size="20"><component :is="item.icon" /></el-icon>
               </div>
               <div class="stat-info">
-                <div class="stat-title">{{ item.title }}</div>
-                <div class="stat-value" :style="{ color: item.color }">
-                  {{ item.value.toLocaleString() }}
-                </div>
-                <div v-if="item.isNew" class="stat-tag">
-                  <span class="pulse-dot"></span>
-                  Today
-                </div>
+                <div class="stat-label">{{ item.title }}</div>
+                <div class="stat-value">{{ item.value.toLocaleString() }}</div>
+                <el-tag v-if="item.isNew" size="small" type="danger">Today</el-tag>
               </div>
             </div>
-            <div class="stat-wave"></div>
           </div>
-        </div>
 
-        <!-- 订单趋势图 -->
-        <div class="chart-card">
-          <div class="chart-header">
-            <h3>📈 近7天订单趋势</h3>
-            <span class="chart-badge">实时统计</span>
+          <!-- 订单趋势图 -->
+          <div class="chart-section">
+            <div class="chart-title">近7天订单趋势</div>
+            <div ref="orderTrendChartRef" class="chart-box"></div>
           </div>
-          <div ref="orderTrendChartRef" class="chart-box"></div>
-        </div>
-      </el-tab-pane>
+        </el-tab-pane>
 
-      <el-tab-pane label="商品数据" name="products">
-        <!-- 商品统计卡片 -->
-        <div class="section-title">
-          <span class="section-icon">📦</span>
-          <span>商品统计</span>
-        </div>
-        <div class="stats-grid">
-          <div 
-            v-for="(item, index) in productStatsCards" 
-            :key="'product-' + index" 
-            class="stat-card"
-            :style="{ animationDelay: `${index * 0.1}s` }"
-          >
-            <div class="stat-card-bg" :style="{ background: `linear-gradient(135deg, ${item.color}15, ${item.color}05)` }"></div>
-            <div class="stat-content">
-              <div class="stat-icon-wrapper" :style="{ 
-                background: `linear-gradient(135deg, ${item.color}, ${item.color}dd)`,
-                boxShadow: `0 4px 12px ${item.color}40`
-              }">
-                <el-icon :size="28"><component :is="item.icon" /></el-icon>
+        <el-tab-pane label="商品数据" name="products">
+          <!-- 商品统计卡片 -->
+          <div class="section-header">商品统计</div>
+          <div class="stats-row">
+            <div v-for="(item, index) in productStatsCards" :key="'product-' + index" class="stat-item">
+              <div class="stat-icon" :style="{ background: item.color }">
+                <el-icon :size="20"><component :is="item.icon" /></el-icon>
               </div>
               <div class="stat-info">
-                <div class="stat-title">{{ item.title }}</div>
-                <div class="stat-value" :style="{ color: item.color }">
-                  {{ item.value.toLocaleString() }}
-                </div>
+                <div class="stat-label">{{ item.title }}</div>
+                <div class="stat-value">{{ item.value.toLocaleString() }}</div>
               </div>
             </div>
-            <div class="stat-wave"></div>
           </div>
-        </div>
 
-        <el-row :gutter="20" class="charts-row">
-          <!-- 分类销量 -->
-          <el-col :span="12" :xs="24">
-            <div class="chart-card">
-              <div class="chart-header">
-                <h3>🏷️ 分类销量占比</h3>
-                <span class="chart-badge">销售分析</span>
+          <el-row :gutter="20">
+            <!-- 分类销量 -->
+            <el-col :span="12" :xs="24">
+              <div class="chart-section">
+                <div class="chart-title">分类销量占比</div>
+                <div ref="categorySalesChartRef" class="chart-box"></div>
               </div>
-              <div ref="categorySalesChartRef" class="chart-box"></div>
-            </div>
-          </el-col>
-          <!-- 热销商品 -->
-          <el-col :span="12" :xs="24">
-            <div class="chart-card hot-products-card">
-              <div class="chart-header">
-                <h3>🔥 热销商品 TOP5</h3>
-                <span class="chart-badge">销量排行</span>
-              </div>
-              <div class="hot-products-list">
-                <div 
-                  v-for="(product, index) in hotProducts" 
-                  :key="product.id" 
-                  class="hot-product-item"
-                >
-                  <div class="rank-badge" :class="{ 'top-three': index < 3 }">
-                    {{ index + 1 }}
-                  </div>
-                  <img :src="product.mainImage" :alt="product.name" class="product-image" />
-                  <div class="product-info">
-                    <div class="product-name">{{ product.name }}</div>
-                    <div class="product-stats">
-                      <span class="sales-count">销量: {{ product.salesCount }}</span>
-                      <span class="sales-amount">¥{{ formatAmount(product.salesAmount) }}</span>
+            </el-col>
+            <!-- 热销商品 -->
+            <el-col :span="12" :xs="24">
+              <div class="chart-section">
+                <div class="chart-title">热销商品 TOP5</div>
+                <div class="hot-products-list">
+                  <div 
+                    v-for="(product, index) in hotProducts" 
+                    :key="product.id" 
+                    class="hot-product-item"
+                  >
+                    <span class="rank" :class="{ top: index < 3 }">{{ index + 1 }}</span>
+                    <img :src="product.mainImage" :alt="product.name" class="product-img" />
+                    <div class="product-info">
+                      <div class="product-name">{{ product.name }}</div>
+                      <div class="product-stats">
+                        <span>销量: {{ product.salesCount }}</span>
+                        <span class="amount">¥{{ formatAmount(product.salesAmount) }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </el-col>
-        </el-row>
-      </el-tab-pane>
-    </el-tabs>
+            </el-col>
+          </el-row>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
   </div>
 </template>
 
 <style scoped lang="scss">
-.dashboard-container {
-  padding: 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 100vh;
-  position: relative;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 300px;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-    border-radius: 0 0 50% 50% / 0 0 80px 80px;
-    z-index: 0;
-  }
+.dashboard-page {
+  padding: 20px;
+}
 
-  > * {
-    position: relative;
-    z-index: 1;
-  }
+.main-card {
+  border-radius: 10px;
 
-  .header-section {
+  .header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 32px;
-    padding: 24px;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    animation: slideDown 0.6s ease-out;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #ebeef5;
 
-    .title-group {
+    .title-area {
+      .title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #303133;
+        margin: 0 0 4px 0;
+      }
+
+      .sub-title {
+        font-size: 13px;
+        color: #909399;
+      }
+    }
+
+    .header-info {
       display: flex;
-      align-items: center;
       gap: 16px;
 
-      .title-decorator {
-        width: 4px;
-        height: 48px;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        border-radius: 2px;
-        animation: stretch 1s ease-in-out infinite alternate;
-      }
-
-      .main-title { 
-        font-size: 28px; 
-        font-weight: 700; 
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin: 0;
+      .info-item {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 6px;
+        font-size: 13px;
+        color: #606266;
+        padding: 6px 12px;
+        background: #f6f7fb;
+        border-radius: 6px;
 
-        .title-icon {
-          font-size: 32px;
-          animation: bounce 2s ease-in-out infinite;
+        &.warning {
+          color: #f56c6c;
         }
-      }
-
-      .sub-title { 
-        font-size: 14px; 
-        color: #909399; 
-        margin-left: 4px;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-      }
-    }
-
-    .header-extras {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-
-      .date-badge, .disabled-badge {
-        padding: 10px 16px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all 0.3s;
-        cursor: default;
-
-        &:hover {
-          transform: translateY(-2px);
-        }
-
-        .el-icon {
-          font-size: 16px;
-        }
-      }
-
-      .date-badge {
-        background: linear-gradient(135deg, #667eea15, #764ba215);
-        color: #667eea;
-        border: 1px solid #667eea30;
-      }
-
-      .disabled-badge {
-        background: linear-gradient(135deg, #ff6b6b15, #ee5a6f15);
-        color: #ff6b6b;
-        border: 1px solid #ff6b6b30;
       }
     }
   }
+}
 
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 20px;
-    margin-bottom: 32px;
-  }
+.section-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 16px;
+  padding-left: 10px;
+  border-left: 3px solid #409eff;
+}
 
-  .stat-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 24px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-    animation: fadeInUp 0.6s ease-out backwards;
+.stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
 
-    &:hover {
-      transform: translateY(-8px) scale(1.02);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #f6f7fb;
+    border-radius: 8px;
+    min-width: 180px;
+    flex: 1;
 
-      .stat-icon-wrapper {
-        transform: rotate(360deg) scale(1.1);
-      }
-
-      .stat-wave {
-        transform: translateX(0);
-      }
-    }
-
-    .stat-card-bg {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      opacity: 0.6;
-      transition: opacity 0.3s;
-    }
-
-    &:hover .stat-card-bg {
-      opacity: 1;
-    }
-
-    .stat-content {
+    .stat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
-      position: relative;
-      z-index: 2;
-    }
-
-    .stat-icon-wrapper {
-      width: 64px;
-      height: 64px;
-      border-radius: 16px;
-      display: flex;
       justify-content: center;
-      align-items: center;
-      margin-right: 16px;
       color: #fff;
-      transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
       flex-shrink: 0;
     }
 
     .stat-info {
-      flex: 1;
-    }
-
-    .stat-title { 
-      font-size: 14px; 
-      color: #909399; 
-      margin-bottom: 8px;
-      font-weight: 500;
-      letter-spacing: 0.3px;
-    }
-
-    .stat-value { 
-      font-size: 32px; 
-      font-weight: 700;
-      line-height: 1;
-      margin-bottom: 8px;
-      background: linear-gradient(135deg, currentColor, currentColor);
-      -webkit-background-clip: text;
-    }
-
-    .stat-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
-      color: #fff;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
-
-      .pulse-dot {
-        width: 6px;
-        height: 6px;
-        background: #fff;
-        border-radius: 50%;
-        animation: pulse 1.5s ease-in-out infinite;
+      .stat-label {
+        font-size: 13px;
+        color: #909399;
+        margin-bottom: 4px;
       }
-    }
 
-    .stat-wave {
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 120px;
-      height: 120px;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-      border-radius: 50%;
-      transform: translateX(60px) translateY(60px);
-      transition: transform 0.6s;
-    }
-  }
-
-  .chart-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s;
-    animation: fadeInUp 0.8s ease-out backwards;
-
-    &:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    }
-
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 2px solid #f0f2f5;
-
-      h3 {
-        margin: 0;
-        font-size: 18px;
+      .stat-value {
+        font-size: 20px;
         font-weight: 600;
         color: #303133;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .chart-badge {
-        font-size: 12px;
-        padding: 4px 12px;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #667eea15, #764ba215);
-        color: #667eea;
-        font-weight: 600;
-        border: 1px solid #667eea30;
       }
     }
+  }
+}
 
-    .chart-box {
-      width: 100%;
-      height: 380px;
-    }
+.chart-section {
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+
+  .chart-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #ebeef5;
   }
 
-  .age-chart-card {
-    animation-delay: 0.2s;
+  .chart-box {
+    width: 100%;
+    height: 350px;
   }
+}
 
-  .gender-chart-card {
-    animation-delay: 0.4s;
-  }
-
-  /* Tab 样式 */
-  .dashboard-tabs {
-    :deep(.el-tabs__header) {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-radius: 12px;
-      padding: 8px;
-      margin-bottom: 24px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    }
-
-    :deep(.el-tabs__nav-wrap::after) {
-      display: none;
-    }
-
-    :deep(.el-tabs__item) {
-      font-size: 15px;
-      font-weight: 500;
-      padding: 12px 24px;
-      border-radius: 8px;
-      transition: all 0.3s;
-      color: #606266;
-
-      &.is-active {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: #fff;
-      }
-
-      &:hover:not(.is-active) {
-        color: #667eea;
-        background: rgba(102, 126, 234, 0.1);
-      }
-    }
-
-    :deep(.el-tabs__active-bar) {
-      display: none;
-    }
-  }
-
-  /* Section 标题 */
-  .section-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 20px;
-    padding: 12px 20px;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-
-    .section-icon {
-      font-size: 24px;
-    }
-
-    span:last-child {
-      font-size: 18px;
-      font-weight: 600;
-      color: #303133;
-    }
-  }
-
-  /* 销售额卡片特殊样式 */
-  .sales-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .sales-card {
-    .stat-value {
-      font-size: 28px !important;
-    }
-  }
-
-  /* 订单趋势卡片 */
-  .order-trend-card {
-    margin-top: 24px;
-  }
-
-  /* 热销商品列表 */
-  .hot-products-card {
-    .chart-box {
-      display: none;
-    }
-  }
-
-  .hot-products-list {
-    padding: 10px 0;
-  }
-
+.hot-products-list {
   .hot-product-item {
     display: flex;
     align-items: center;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    background: linear-gradient(135deg, #f8f9fa, #fff);
-    border-radius: 12px;
-    border: 1px solid #e8e8e8;
-    transition: all 0.3s;
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
 
     &:last-child {
-      margin-bottom: 0;
+      border-bottom: none;
     }
 
-    &:hover {
-      transform: translateX(8px);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-      border-color: #667eea;
-    }
-
-    .rank-badge {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
+    .rank {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 12px;
+      font-weight: 600;
       color: #909399;
       background: #f0f2f5;
-      margin-right: 14px;
-      flex-shrink: 0;
+      margin-right: 12px;
 
-      &.top-three {
-        background: linear-gradient(135deg, #667eea, #764ba2);
+      &.top {
+        background: #409eff;
         color: #fff;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
       }
     }
 
-    .product-image {
-      width: 50px;
-      height: 50px;
-      border-radius: 10px;
+    .product-img {
+      width: 48px;
+      height: 48px;
+      border-radius: 6px;
       object-fit: cover;
-      margin-right: 14px;
-      flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-right: 12px;
     }
 
     .product-info {
@@ -1204,9 +838,9 @@ onUnmounted(() => {
 
       .product-name {
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 500;
         color: #303133;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1214,131 +848,38 @@ onUnmounted(() => {
 
       .product-stats {
         display: flex;
-        gap: 16px;
-        font-size: 13px;
+        gap: 12px;
+        font-size: 12px;
+        color: #909399;
 
-        .sales-count {
-          color: #909399;
-        }
-
-        .sales-amount {
-          color: #667eea;
-          font-weight: 600;
+        .amount {
+          color: #409eff;
+          font-weight: 500;
         }
       }
     }
-  }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.2);
-  }
-}
-
-@keyframes stretch {
-  from {
-    transform: scaleY(1);
-  }
-  to {
-    transform: scaleY(1.1);
   }
 }
 
 @media (max-width: 768px) {
-  .dashboard-container {
-    padding: 16px;
+  .dashboard-page {
+    padding: 12px;
   }
 
-  .header-section {
+  .header {
     flex-direction: column;
     align-items: flex-start !important;
-    gap: 16px;
-    padding: 20px !important;
+    gap: 12px;
+  }
 
-    .title-group {
-      .main-title {
-        font-size: 24px;
-      }
-      
-      .title-decorator {
-        height: 40px;
-      }
-    }
-
-    .header-extras {
-      width: 100%;
-      justify-content: space-between;
+  .stats-row {
+    .stat-item {
+      min-width: 140px;
     }
   }
 
-  .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-  }
-
-  .stat-card {
-    padding: 16px;
-
-    .stat-icon-wrapper {
-      width: 48px;
-      height: 48px;
-      margin-right: 12px;
-    }
-
-    .stat-value {
-      font-size: 24px;
-    }
-  }
-
-  .charts-row {
-    .el-col {
-      margin-bottom: 20px;
-    }
-  }
-
-  .chart-card {
-    padding: 16px;
-
-    .chart-box {
-      height: 300px;
-    }
+  .chart-section .chart-box {
+    height: 280px;
   }
 }
 </style>

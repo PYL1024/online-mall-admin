@@ -19,6 +19,9 @@ import type {
 } from './model/product'
 import { get, post, del, put } from '@/utils/request'
 
+// 模拟延迟函数
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 const CATEGORY_BASE = '/api/admin/categories'
 const CATEGORY_LIST = '/api/products/category/list'
 const PRODUCT_BASE = '/api/admin/products'

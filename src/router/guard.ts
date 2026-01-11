@@ -8,7 +8,7 @@ import { useUserStore } from '@/stores/user'
 NProgress.configure({ showSpinner: false })
 
 // 白名单路由（无需登录即可访问）
-const whiteList = ['/login', '/404']
+const whiteList = ['/login', '/forgot-password', '/404']
 
 /**
  * 是否启用路由守卫

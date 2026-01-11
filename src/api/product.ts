@@ -62,7 +62,9 @@ export async function getCategoryTree(): Promise<Category[]> {
   const response = await get<{ data: RawCategory[] } | RawCategory[]>(CATEGORY_LIST)
 
   // 兼容两种返回格式
-  const list: RawCategory[] = Array.isArray(response) ? response : (response as { data: RawCategory[] }).data
+  const list: RawCategory[] = Array.isArray(response)
+    ? response
+    : (response as { data: RawCategory[] }).data
 
   // 后端返回为扁平列表，这里补齐树形结构字段
   return list.map((item, index) => ({
@@ -145,7 +147,11 @@ export async function updateCategorySort(
   return Promise.resolve()
 }
 
-function flattenCategories(categories: Category[], prefix = '', output: Category[] = []): Category[] {
+function flattenCategories(
+  categories: Category[],
+  prefix = '',
+  output: Category[] = [],
+): Category[] {
   categories.forEach((cat) => {
     output.push({
       ...cat,
@@ -227,11 +233,11 @@ export async function getProductList(
   const isArray = Array.isArray(response)
   const rawList = isArray
     ? (response as ProductSimple[])
-    : ((response as RawResponse).productSimple ||
-        (response as RawResponse).ProductSimple ||
-        (response as RawResponse).data ||
-        (response as RawResponse).list ||
-        [])
+    : (response as RawResponse).productSimple ||
+      (response as RawResponse).ProductSimple ||
+      (response as RawResponse).data ||
+      (response as RawResponse).list ||
+      []
 
   const total = isArray
     ? (response as ProductSimple[]).length
@@ -262,11 +268,9 @@ export async function getProductList(
         name: item.name,
         categoryId,
         // 优先使用详情接口返回的分类名称，其次是标签，最后通过ID映射
-        categoryName:
-          detail?.categoryName || item.tag || idToNameMap.get(categoryId) || '',
+        categoryName: detail?.categoryName || item.tag || idToNameMap.get(categoryId) || '',
         mainImage: detail?.mainImage || item.image || itemExt.mainImage || '',
-        images:
-          detail?.images && detail.images.length > 0 ? detail.images : [item.image || ''],
+        images: detail?.images && detail.images.length > 0 ? detail.images : [item.image || ''],
         price: detail?.price || item.price || 0,
         stock: detail?.stock || itemExt.stock || 0,
         status: (itemExt.status === 0 ? 0 : 1) as 1 | 0,
@@ -280,7 +284,9 @@ export async function getProductList(
     list,
     total: total,
     page: isArray ? params.page : (response as RawResponse).page || params.page,
-    pageSize: Number(isArray ? params.pageSize : (response as RawResponse).pageSize || params.pageSize),
+    pageSize: Number(
+      isArray ? params.pageSize : (response as RawResponse).pageSize || params.pageSize,
+    ),
   }
 }
 
@@ -331,26 +337,29 @@ export async function getProductDetail(id: number): Promise<Product | null> {
       detailImages, // 从 detailHtml 提取的图片
       params: response.params, // 保留原始参数
       skuSpec: {
-        cpus: response.specs?.find(s => s.name === '处理器' || s.name === 'CPU')?.values || [],
-        rams: response.specs?.find(s => s.name === '内存容量' || s.name === '内存')?.values || [],
-        storages: response.specs?.find(s => s.name === '存储容量' || s.name === '存储')?.values || [],
-        gpus: response.specs?.find(s => s.name === '显卡' || s.name === '显卡规格')?.values || [],
-        vramCapacities: response.specs?.find(s => s.name === '显存容量' || s.name === '显存')?.values || [],
-        combinations: response.skus?.map((s) => {
-          const specs = s.specs as Record<string, string | number>
-          return {
-            id: s.id,
-            cpu: String(specs.cpu || ''),
-            ram: String(specs.ram || specs.memory || ''),
-            storage: String(specs.storage || ''),
-            gpu: String(specs.gpu || ''),
-            os: String(specs.os || ''),
-            vramCapacity: String(specs.vramCapacity || specs.vram_capacity || ''),
-            stock: s.stock,
-            price: s.price,
-          }
-        }) || [],
-      }
+        cpus: response.specs?.find((s) => s.name === '处理器' || s.name === 'CPU')?.values || [],
+        rams: response.specs?.find((s) => s.name === '内存容量' || s.name === '内存')?.values || [],
+        storages:
+          response.specs?.find((s) => s.name === '存储容量' || s.name === '存储')?.values || [],
+        gpus: response.specs?.find((s) => s.name === '显卡' || s.name === '显卡规格')?.values || [],
+        vramCapacities:
+          response.specs?.find((s) => s.name === '显存容量' || s.name === '显存')?.values || [],
+        combinations:
+          response.skus?.map((s) => {
+            const specs = s.specs as Record<string, string | number>
+            return {
+              id: s.id,
+              cpu: String(specs.cpu || ''),
+              ram: String(specs.ram || specs.memory || ''),
+              storage: String(specs.storage || ''),
+              gpu: String(specs.gpu || ''),
+              os: String(specs.os || ''),
+              vramCapacity: String(specs.vramCapacity || specs.vram_capacity || ''),
+              stock: s.stock,
+              price: s.price,
+            }
+          }) || [],
+      },
     }
 
     return product
@@ -427,7 +436,10 @@ export async function addProduct(data: ProductForm): Promise<ProductCreateRespon
     main_images_count: mainImages.length,
   })
 
-  const response = await post<ProductCreateResponse>(PRODUCT_BASE, requestBody as unknown as Record<string, unknown>)
+  const response = await post<ProductCreateResponse>(
+    PRODUCT_BASE,
+    requestBody as unknown as Record<string, unknown>,
+  )
 
   console.log('✅ addProduct 响应数据:', response)
 
@@ -524,10 +536,7 @@ export async function batchUpdateProductStatus(ids: number[], status: 0 | 1): Pr
     status,
   }
 
-  return put<void>(
-    `${PRODUCT_BASE}/status`,
-    requestBody as unknown as Record<string, unknown>,
-  )
+  return put<void>(`${PRODUCT_BASE}/status`, requestBody as unknown as Record<string, unknown>)
 }
 
 const SKU_BASE = '/api/admin/sku'
@@ -538,10 +547,7 @@ const SKU_BASE = '/api/admin/sku'
  * 为指定产品创建新的SKU（具体规格）
  */
 export async function addSku(data: SkuCreateRequest): Promise<SkuCreateResponse> {
-  return post<SkuCreateResponse>(
-    SKU_BASE,
-    data as unknown as Record<string, unknown>,
-  )
+  return post<SkuCreateResponse>(SKU_BASE, data as unknown as Record<string, unknown>)
 }
 
 /**
@@ -550,10 +556,7 @@ export async function addSku(data: SkuCreateRequest): Promise<SkuCreateResponse>
  * 更新指定ID的SKU信息
  */
 export async function updateSku(id: number, data: SkuUpdateRequest): Promise<void> {
-  return put<void>(
-    `${SKU_BASE}/${id}`,
-    data as unknown as Record<string, unknown>,
-  )
+  return put<void>(`${SKU_BASE}/${id}`, data as unknown as Record<string, unknown>)
 }
 
 /**
@@ -576,10 +579,7 @@ export async function batchUpdateSkuStatus(ids: number[], isActive: number): Pro
     is_active: isActive,
   }
 
-  return put<void>(
-    `${SKU_BASE}/batch-status`,
-    requestBody as unknown as Record<string, unknown>,
-  )
+  return put<void>(`${SKU_BASE}/batch-status`, requestBody as unknown as Record<string, unknown>)
 }
 
 /**
@@ -605,10 +605,10 @@ export async function batchSaveSkus(
   existingSkuIds: number[] = [],
 ): Promise<void> {
   // 收集当前提交的所有带 id 的 SKU
-  const currentIds = skus.filter(s => s.id).map(s => s.id as number)
+  const currentIds = skus.filter((s) => s.id).map((s) => s.id as number)
 
   // 找出需要删除的 SKU（在原有列表中但不在当前列表中）
-  const idsToDelete = existingSkuIds.filter(id => !currentIds.includes(id))
+  const idsToDelete = existingSkuIds.filter((id) => !currentIds.includes(id))
 
   // 删除需要删除的 SKU
   for (const id of idsToDelete) {
@@ -679,15 +679,15 @@ export interface HotProductItem {
  * 商品统计数据结构
  */
 export interface ProductStatisticsData {
-  totalProducts: number         // 商品总数
-  onSaleProducts: number        // 在售商品
-  offSaleProducts: number       // 下架商品
-  lowStockProducts: number      // 库存预警（库存<10）
-  totalCategories: number       // 分类总数
-  todayViews: number            // 今日浏览量
-  monthViews: number            // 本月浏览量
-  categorySales: CategorySalesItem[]  // 分类销量
-  hotProducts: HotProductItem[]       // 热销商品Top5
+  totalProducts: number // 商品总数
+  onSaleProducts: number // 在售商品
+  offSaleProducts: number // 下架商品
+  lowStockProducts: number // 库存预警（库存<10）
+  totalCategories: number // 分类总数
+  todayViews: number // 今日浏览量
+  monthViews: number // 本月浏览量
+  categorySales: CategorySalesItem[] // 分类销量
+  hotProducts: HotProductItem[] // 热销商品Top5
 }
 
 /**
@@ -711,15 +711,45 @@ export async function getProductStatistics(): Promise<ProductStatisticsData> {
       { categoryId: 2, categoryName: '拯救者系列', salesCount: 420, salesAmount: 5880000 },
       { categoryId: 3, categoryName: 'YOGA系列', salesCount: 350, salesAmount: 3850000 },
       { categoryId: 4, categoryName: 'ThinkBook系列', salesCount: 280, salesAmount: 2520000 },
-      { categoryId: 5, categoryName: '小新系列', salesCount: 450, salesAmount: 2700000 }
+      { categoryId: 5, categoryName: '小新系列', salesCount: 450, salesAmount: 2700000 },
     ],
     hotProducts: [
-      { id: 1, name: 'ThinkPad X1 Carbon 2024', mainImage: 'https://picsum.photos/100/100?random=1', salesCount: 156, salesAmount: 2027400 },
-      { id: 2, name: '拯救者 Y9000P 2024', mainImage: 'https://picsum.photos/100/100?random=2', salesCount: 142, salesAmount: 1704000 },
-      { id: 3, name: 'YOGA Pro 14s', mainImage: 'https://picsum.photos/100/100?random=3', salesCount: 128, salesAmount: 1152000 },
-      { id: 4, name: '小新 Pro 16 2024', mainImage: 'https://picsum.photos/100/100?random=4', salesCount: 115, salesAmount: 690000 },
-      { id: 5, name: 'ThinkBook 14+ 2024', mainImage: 'https://picsum.photos/100/100?random=5', salesCount: 98, salesAmount: 588000 }
-    ]
+      {
+        id: 1,
+        name: 'ThinkPad X1 Carbon 2024',
+        mainImage: 'https://picsum.photos/100/100?random=1',
+        salesCount: 156,
+        salesAmount: 2027400,
+      },
+      {
+        id: 2,
+        name: '拯救者 Y9000P 2024',
+        mainImage: 'https://picsum.photos/100/100?random=2',
+        salesCount: 142,
+        salesAmount: 1704000,
+      },
+      {
+        id: 3,
+        name: 'YOGA Pro 14s',
+        mainImage: 'https://picsum.photos/100/100?random=3',
+        salesCount: 128,
+        salesAmount: 1152000,
+      },
+      {
+        id: 4,
+        name: '小新 Pro 16 2024',
+        mainImage: 'https://picsum.photos/100/100?random=4',
+        salesCount: 115,
+        salesAmount: 690000,
+      },
+      {
+        id: 5,
+        name: 'ThinkBook 14+ 2024',
+        mainImage: 'https://picsum.photos/100/100?random=5',
+        salesCount: 98,
+        salesAmount: 588000,
+      },
+    ],
   }
 
   // 真实API调用

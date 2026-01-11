@@ -21,6 +21,8 @@ const loading = ref(false)
 const orders = ref<AdminOrderListItem[]>([])
 const total = ref(0)
 
+const FILTER_STORAGE_KEY = 'admin-order-list-filters'
+
 const filters = reactive<OrderListFilters>({
   page: 1,
   pageSize: 20,
@@ -233,7 +235,7 @@ function handleViewDetail(orderSn: string) {
             v-model="filters.orderSn"
             placeholder="输入订单号"
             clearable
-            style="width: 220px"
+            style="width: 200px"
           />
         </el-form-item>
         <el-form-item label="用户ID">
@@ -241,7 +243,7 @@ function handleViewDetail(orderSn: string) {
             v-model.number="filters.userId"
             placeholder="输入用户ID"
             clearable
-            style="width: 200px"
+            style="width: 180px"
           />
         </el-form-item>
         <el-form-item label="手机号">
@@ -249,7 +251,7 @@ function handleViewDetail(orderSn: string) {
             v-model="filters.phone"
             placeholder="收货人手机号"
             clearable
-            style="width: 200px"
+            style="width: 180px"
           />
         </el-form-item>
         <el-form-item label="状态">

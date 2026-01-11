@@ -2,34 +2,34 @@
 /**
  * 多图上传组件
  * 支持批量上传、拖拽排序、图片预览和删除
- * 注意：图片不单独上传，使用本地Blob URL预览，保存商品时一起提交
+ * 支持直接输入图片URL或上传本地文件（转Base64）
  */
 import { ref, computed, watch } from 'vue'
 import {
-  ElUpload,
   ElButton,
   ElDialog,
   ElImage,
   ElMessage,
   ElIcon,
+  ElInput,
 } from 'element-plus'
-import { Plus, Delete, ZoomIn, Rank } from '@element-plus/icons-vue'
-import type { UploadFile, UploadProps } from 'element-plus'
+import { Delete, ZoomIn, Rank, Link } from '@element-plus/icons-vue'
+import type { UploadFile } from 'element-plus'
 
 // ==================== Props & Emits ====================
 
 interface Props {
   modelValue: string[] // 图片URL数组
   maxCount?: number // 最大上传数量
-  accept?: string // 接受的文件类型
   disabled?: boolean
+  allowUrl?: boolean // 是否允许直接输入URL
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: () => [],
   maxCount: 5,
-  accept: 'image/jpeg,image/png,image/gif,image/webp',
   disabled: false,
+  allowUrl: true,
 })
 
 const emit = defineEmits<{
@@ -50,6 +50,9 @@ const previewIndex = ref(0)
 // 拖拽状态
 const dragIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
+
+// URL输入状态
+const urlInputValue = ref('')
 
 // ==================== 计算属性 ====================
 
@@ -91,80 +94,56 @@ watch(
   { immediate: true }
 )
 
-// ==================== 上传处理 ====================
+/**
+ * 验证URL是否为有效的图片URL
+ */
+function isValidImageUrl(url: string): boolean {
+  if (!url) return false
+  // 支持 http/https URL 和 data URL (Base64)
+  return /^(https?:\/\/|data:image\/)/.test(url)
+}
 
 /**
- * 上传前校验
+ * 通过URL添加图片
  */
-const beforeUpload: UploadProps['beforeUpload'] = (rawFile) => {
-  // 检查文件类型
-  const acceptTypes = props.accept.split(',').map(t => t.trim())
-  if (!acceptTypes.includes(rawFile.type)) {
-    ElMessage.error(`只支持 ${acceptTypes.join('、')} 格式的图片`)
-    return false
+function handleAddByUrl() {
+  const url = urlInputValue.value.trim()
+
+  if (!url) {
+    ElMessage.warning('请输入图片URL')
+    return
   }
 
-  // 检查文件大小（限制 5MB，避免 Base64 过大）
-  const maxSize = 5 * 1024 * 1024 // 5MB
-  if (rawFile.size > maxSize) {
-    ElMessage.error('图片大小不能超过 5MB')
-    return false
+  if (!isValidImageUrl(url)) {
+    ElMessage.error('请输入有效的图片URL（http:// 或 https:// 开头）')
+    return
   }
 
-  // 检查数量限制
   if (fileList.value.length >= props.maxCount) {
     ElMessage.error(`最多只能上传 ${props.maxCount} 张图片`)
-    return false
+    return
   }
 
-  return true
-}
-
-/**
- * 将文件转换为 Base64 Data URL
- */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
-/**
- * 文件状态改变（处理上传结果）
- * 将图片转换为 Base64 Data URL，保存商品时一起提交
- */
-const handleChange: UploadProps['onChange'] = async (uploadFile) => {
-  if (uploadFile.status === 'ready' && uploadFile.raw) {
-    // 检查数量限制
-    if (fileList.value.length >= props.maxCount) {
-      ElMessage.warning(`最多只能上传 ${props.maxCount} 张图片`)
-      return
-    }
-
-    try {
-      // 将图片转换为 Base64 Data URL
-      const base64Url = await fileToBase64(uploadFile.raw)
-
-      // 添加到文件列表
-      fileList.value.push({
-        uid: uploadFile.uid,
-        name: uploadFile.name,
-        url: base64Url,  // 使用 Base64 URL
-        status: 'success',
-        raw: uploadFile.raw,
-      } as UploadFile)
-
-      // 触发更新
-      emitUpdate()
-      ElMessage.success('图片添加成功')
-    } catch (error) {
-      console.error('图片转换失败:', error)
-      ElMessage.error('图片处理失败，请重试')
-    }
+  // 检查是否已存在
+  if (fileList.value.some(f => f.url === url)) {
+    ElMessage.warning('该图片已存在')
+    return
   }
+
+  // 添加到文件列表
+  fileList.value.push({
+    uid: Date.now(),
+    name: `url-image-${fileList.value.length}`,
+    url,
+    status: 'success',
+  } as UploadFile)
+
+  // 清空输入
+  urlInputValue.value = ''
+
+  // 触发更新
+  emitUpdate()
+  ElMessage.success('图片添加成功')
 }
 
 /**
@@ -281,8 +260,26 @@ function handleDragEnd() {
 
 <template>
   <div class="multi-image-upload">
+    <!-- URL输入框 (常驻显示) -->
+    <div v-if="canUpload && allowUrl" class="url-input-section">
+      <ElInput
+        v-model="urlInputValue"
+        placeholder="请输入图片URL并点击添加"
+        clearable
+        @keyup.enter="handleAddByUrl"
+        class="url-input"
+      >
+        <template #prepend>
+          <ElIcon><Link /></ElIcon>
+        </template>
+        <template #append>
+          <ElButton @click="handleAddByUrl">添加图片</ElButton>
+        </template>
+      </ElInput>
+    </div>
+
     <!-- 图片列表 -->
-    <div class="image-list">
+    <div class="image-list" :class="{ 'has-margin': canUpload && allowUrl }">
       <div
         v-for="(file, index) in fileList"
         :key="file.uid"
@@ -318,29 +315,10 @@ function handleDragEnd() {
         <!-- 序号 -->
         <div class="image-index">{{ index + 1 }}</div>
       </div>
-
-      <!-- 上传按钮 -->
-      <div v-if="canUpload" class="upload-trigger">
-        <ElUpload
-          :file-list="fileList"
-          :accept="accept"
-          :auto-upload="false"
-          :show-file-list="false"
-          :before-upload="beforeUpload"
-          :on-change="handleChange"
-          multiple
-          :limit="maxCount"
-        >
-          <div class="upload-box">
-            <ElIcon class="upload-icon"><Plus /></ElIcon>
-            <span class="upload-text">上传图片</span>
-          </div>
-        </ElUpload>
-      </div>
     </div>
 
     <!-- 提示文字 -->
-    <div class="upload-tip">{{ uploadTip }}</div>
+    <div class="upload-tip">{{ uploadTip }}，请输入图片URL进行添加</div>
 
     <!-- 大图预览弹窗 -->
     <ElDialog
@@ -386,6 +364,15 @@ function handleDragEnd() {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+
+  &.has-margin {
+    margin-top: 12px;
+  }
+}
+
+.url-input-section {
+  margin-bottom: 16px;
+  max-width: 600px;
 }
 
 .image-item {
@@ -481,49 +468,6 @@ function handleDragEnd() {
     display: flex;
     justify-content: center;
     align-items: center;
-  }
-}
-
-.upload-trigger {
-  width: 120px;
-  height: 120px;
-
-  :deep(.el-upload) {
-    width: 100%;
-    height: 100%;
-  }
-
-  .upload-box {
-    width: 100%;
-    height: 100%;
-    border: 1px dashed #dcdfe6;
-    border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    transition: all 0.3s;
-
-    &:hover {
-      border-color: #409eff;
-      background: #f5f7fa;
-
-      .upload-icon {
-        color: #409eff;
-      }
-    }
-
-    .upload-icon {
-      font-size: 28px;
-      color: #909399;
-      margin-bottom: 8px;
-    }
-
-    .upload-text {
-      font-size: 12px;
-      color: #909399;
-    }
   }
 }
 
